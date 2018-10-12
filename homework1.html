@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+<style>
+#info {
+  position: absolute;
+  top: 0px;
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  color: #ff0000;
+}
+
+body {
+  overflow: hidden;
+}
+
+</style>
+</head>
+
+<body> 
+<div id="info">
+  hw1
+  <br>
+  <button id="toggle" style="width:20%">Toggle camera</button>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/96/three.min.js"></script>
+<script src="https://threejs.org/examples/js/controls/OrbitControls.js">
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r16/Stats.min.js"></script>
+
+<script src="https://jyunming-chen.github.io/tutsplus/js/KeyboardState.js"></script>
+<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+<script src="https://rawgit.com/jyunming-chen/tutsplus/master/js/text2D.js"></script>
+
+<script>
+var frame, scene, light, camera1, camera2, camera, renderer, controls, stats;
+var keyboard = new KeyboardState();
+var roadtexture = 'images/road.jpg';
+var treadtexture = 'images/tread.jpg';
+var tiretexture = 'images/tire.png';
+var sidewallktexture = 'images/sidewallk.jpg'; 
+
+var pos = new THREE.Vector3();
+var vel = new THREE.Vector3();
+var force = new THREE.Vector3();
+var power, angle, speed, buttonGroup;
+var changeCamera = true;
+
+var sceneHUD, cameraHUD;
+
+$("#toggle").click(function() {
+  changeCamera = !changeCamera;
+});
+
+
+(function() {
+  Math.clamp = function(val,min,max){
+    return Math.min(Math.max(val,min),max);
+    
+  }})();
+
+init();
+animate();
+
+
+function init() {
+
+	clock = new THREE.Clock();
+
+	renderer = new THREE.WebGLRenderer();
+	renderer.setSize(window.innerWidth, window.innerHeight);
+	renderer.setClearColor(0x888888);
+	document.body.appendChild(renderer.domElement);
+
+	scene = new THREE.Scene();
+
+	camera1 = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 10000);
+	camera1.position.y = 500;
+	
+	camera2 = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 10000);
+
+	controls = new THREE.OrbitControls(camera1, renderer.domElement);
+
+	controls.enableKeys = false;
+
+	stats = new Stats();
+	stats.showPanel(0);
+	stats.domElement.style.position = 'absolute';
+	stats.domElement.style.left = '0px';
+	stats.domElement.style.top = '0px';
+	document.body.appendChild(stats.domElement);
+
+
+	light = new THREE.AmbientLight(0xffffff);
+	light.position.set( -1000, 1000, 500 );
+	scene.add(light);
+	
+
+	
+	
+	///地圖
+	let map = createMap();
+	map.rotation.x = -Math.PI/2;
+	scene.add(map);
+	
+	/*var gridXZ = new THREE.GridHelper(2000, 200, 'red', 'grey');
+	scene.add(gridXZ);*/
+	
+	///skybox
+	let cubeloader = new THREE.CubeTextureLoader();
+	cubeloader.crossOrigin = '';
+	
+	let path = 'images/skybox/';
+	let format = '.jpg';
+	let urls = [
+				path + 'right' + format,
+				path + 'left' + format, 
+				path + 'top' + format,
+				path + 'bottom' + format,
+				path + 'front' + format,
+				path + 'back' + format
+	];
+	
+	
+	let cube = cubeloader.load( urls );
+	scene.background = cube;
+	///
+	
+	
+	///車
+	frame = createThomas();
+	scene.add(frame);
+	pos.set(-400, 8, 150);
+
+	power = 5.0;
+	angle = 0.0;
+
+	window.addEventListener( 'resize', onWindowResize, false );
+
+	///HUD
+	sceneHUD = new THREE.Scene();
+
+	whRatio = window.innerWidth / window.innerHeight;
+	halfH = 10;
+	halfW = whRatio * halfH;
+
+	cameraHUD = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 1, 1000);
+	cameraHUD.position.z = 200;
+	
+	var Text2D = THREE_Text.MeshText2D;
+	var SpriteText2D = THREE_Text.SpriteText2D;
+	var textAlign = THREE_Text.textAlign;  
+
+	///speed
+	speed = new SpriteText2D( 'speed: ' + vel.length().toFixed(2).toString(), {
+	align: textAlign.center,
+	font: '20px Arial',
+	fillStyle: '#ff0000',
+	antialias: false
+	});
+	speed.position.set(0, -6, 100);
+	speed.scale.set(0.1, 0.1, 1);
+
+	sceneHUD.add(speed);
+
+	
+	buttonGroup = new THREE.Group();
+	
+	let loader = new THREE.TextureLoader();
+	loader.crossOrigin = '';
+	
+	///重設座標
+	let res = loader.load('images/rest.png');
+	let button1 = new THREE.Mesh(new THREE.CircleGeometry(halfW / 15, 30), new THREE.MeshBasicMaterial({
+	map: res,
+	depthTest: false
+	}));
+
+	button1.position.set(  (halfW-halfW/10), (halfH-halfW/10), 0  );
+	buttonGroup.add(button1);
+	document.addEventListener('mousedown', resetPos, false);
+
+	//加速
+	let acc = loader.load('images/acc.png');
+	let button2 = new THREE.Mesh(new THREE.CircleGeometry(halfW / 15, 30), new THREE.MeshBasicMaterial({
+	map: acc,
+	depthTest: false
+	}));
+	button2.position.set(  (halfW-halfW/10), -(halfH-halfW/10), 0  );
+	buttonGroup.add(button2);
+	document.addEventListener('mousedown', accelerate, false);
+	
+	///減速
+	let dec  = loader.load('images/dec.png');
+	let button3 = new THREE.Mesh(new THREE.CircleGeometry(halfW / 15, 30), new THREE.MeshBasicMaterial({
+	map: dec,
+	depthTest: false
+	}));
+	button3.position.set(  (halfW-halfW/10) - halfW/4, -(halfH-halfW/10), 0  );
+	buttonGroup.add(button3);
+	document.addEventListener('mousedown', deceleration, false);
+	
+	///剎車
+	let sto = loader.load('images/stop.png');
+	let button4 = new THREE.Mesh(new THREE.CircleGeometry(halfW / 15, 30), new THREE.MeshBasicMaterial({
+	map: sto,
+	depthTest: false  
+	}));
+	button4.position.set(  (halfW-halfW/10) - halfW/2, -(halfH-halfW/10), 0  );
+	buttonGroup.add(button4);
+	document.addEventListener('mousedown', stop, false);
+	
+	///左轉
+	let lef = loader.load('images/left.png');
+	let button5 = new THREE.Mesh(new THREE.CircleGeometry(halfW / 15, 30), new THREE.MeshBasicMaterial({
+	map: lef,
+	depthTest: false  
+	}));
+	button5.position.set(  -(halfW-halfW/10), -(halfH-halfW/10), 0  );
+	buttonGroup.add(button5);
+	document.addEventListener('mousedown', turnLeft, false);	
+	
+	///右轉
+	let rig = loader.load('images/right.png');
+	let button6 = new THREE.Mesh(new THREE.CircleGeometry(halfW / 15, 30), new THREE.MeshBasicMaterial({
+	map: rig,
+	depthTest: false  
+	}));
+	button6.position.set(  -(halfW-halfW/10) + halfW/4, -(halfH-halfW/10), 0  );
+	buttonGroup.add(button6);
+	document.addEventListener('mousedown', turnRight, false);	
+	
+	sceneHUD.add(buttonGroup);
+	
+
+	renderer.autoClear = false;
+
+  
+ 
+}
+
+function update(dt){
+
+	keyboard.update();
+
+	if ( vel.length() > 0 ) {
+	angle = Math.atan2( -vel.z, vel.x ); 
+	}
+
+	if ( keyboard.pressed("space") )  
+	  power = 0.1;               
+	if ( keyboard.pressed("up") )  
+	  power *= 1.2;        
+	if ( keyboard.pressed("down") )  
+	  power /= 1.2;   
+
+	power = Math.clamp (power, 0, 400.0); 
+
+	let angle_thrust = angle;
+	if ( keyboard.pressed("left") )
+	angle_thrust += 0.3;
+	if ( keyboard.pressed("right") )
+	angle_thrust -= 0.3;
+
+	
+	force.copy ( new THREE.Vector3(1,0,0).multiplyScalar(power).applyAxisAngle( 
+																new THREE.Vector3(0,1,0),
+																angle_thrust
+																));
+	force.add( vel.clone().multiplyScalar(-2) )
+
+	
+	vel.add( force.clone().multiplyScalar(dt) );
+	pos.add( vel.clone().multiplyScalar(dt) );    
+    
+}
+
+function animate() {
+
+	stats.begin();
+
+	var dt = clock.getDelta();
+	update(dt);
+
+	///車子移動
+	frame.position.copy(pos);
+	frame.rotation.y = angle;  
+	frame.children[2].rotation.y += power*0.001;
+	frame.children[3].rotation.y += power*0.001;
+	frame.children[4].rotation.y += power*0.001;
+	frame.children[5].rotation.y += power*0.001;
+	
+	///肩後視點
+	camera2.position.copy( frame.localToWorld( new THREE.Vector3( -50, 20, 0 ) ) );
+	camera2.lookAt(frame.position);
+	///顯示速度 
+	speed.text = 'speed: ' + vel.length().toFixed(2).toString();  
+	
+	stats.end();
+	requestAnimationFrame(animate);
+	render();
+}
+function render() {
+	renderer.clear(true);
+	if(changeCamera)
+		camera = camera1;
+	else
+		camera = camera2;
+	  
+	renderer.render(scene, camera);
+	renderer.render(sceneHUD, cameraHUD);
+}
+
+function onWindowResize() {
+		renderer.setSize( window.innerWidth, window.innerHeight );
+		whRatio = window.innerWidth / window.innerHeight;
+		
+		camera.aspect = whRatio;
+		camera.updateProjectionMatrix();
+		
+		halfH = 10;
+		halfW = halfH*whRatio;
+		
+		cameraHUD.left = -halfW;
+		cameraHUD.right = halfW;
+		cameraHUD.top = halfH;
+		cameraHUD.bottom = -halfH;
+		cameraHUD.updateProjectionMatrix();
+		
+		buttonGroup.children[0].position.set( (halfW-halfW/10), (halfH-halfW/10), 0 );
+		buttonGroup.children[0].geometry = new THREE.CircleGeometry(halfW / 15, 30);
+		
+		buttonGroup.children[1].position.set( (halfW-halfW/10), -(halfH-halfW/10), 0 );
+		buttonGroup.children[1].geometry = new THREE.CircleGeometry(halfW / 15, 30);
+		
+		buttonGroup.children[2].position.set( (halfW-halfW/10)-halfW/4, -(halfH-halfW/10), 0 );
+		buttonGroup.children[2].geometry = new THREE.CircleGeometry(halfW / 15, 30);
+		
+		buttonGroup.children[3].position.set( (halfW-halfW/10)-halfW/2, -(halfH-halfW/10), 0 );
+		buttonGroup.children[3].geometry = new THREE.CircleGeometry(halfW / 15, 30);
+		
+		buttonGroup.children[4].position.set( -(halfW-halfW/10), -(halfH-halfW/10), 0 );
+		buttonGroup.children[4].geometry = new THREE.CircleGeometry(halfW / 15, 30);
+
+		buttonGroup.children[5].position.set( -(halfW-halfW/10)+halfW/4, -(halfH-halfW/10), 0 );
+		buttonGroup.children[5].geometry = new THREE.CircleGeometry(halfW / 15, 30);		
+		
+}
+///
+function createWheel(){
+	let tire = new THREE.Object3D();
+	let loader = new THREE.TextureLoader();
+	loader.crossOrigin = '';
+	
+	let treadtex = loader.load(treadtexture);
+	treadtex.repeat.set(6, 1);
+	treadtex.wrapS = THREE.RepeatWrapping;
+	let treadmat = new THREE.MeshPhongMaterial({
+		map: treadtex,
+		side: THREE.DoubleSide
+	});
+	
+	let tread = new THREE.Mesh( new THREE.CylinderGeometry(3, 3, 2, 20, 20, 2, true), treadmat );
+	
+	tire.add(tread);
+	
+	let tiretex = loader.load(tiretexture);
+	let tiremat = new THREE.MeshPhongMaterial({
+		map: tiretex,
+		transparent: true, 
+		side: THREE.DoubleSide
+	});
+	let tire1 = new THREE.Mesh( new THREE.CircleGeometry(3, 20), tiremat);
+	let tire2 = tire1.clone();
+	tire.add(tire1, tire2);
+	tire1.rotation.x = -Math.PI/2;
+	tire1.position.y = 1;
+	tire2.rotation.x = Math.PI/2;
+	tire2.position.y = -1;
+	
+	return tire;
+}
+
+function createThomas() {
+
+	let body = new THREE.Object3D();
+	body.add(new THREE.Mesh(new THREE.BoxGeometry(20, 10, 10), new THREE.MeshBasicMaterial({color: 0xbcbfc4, envMap: scene.background})));
+
+
+	let locomotive = new THREE.Mesh(new THREE.ConeGeometry(4, 12), new THREE.MeshPhongMaterial({color: 0x999b9e, envMap: scene.background}));
+	locomotive.rotation.z = -Math.PI / 2;
+	locomotive.position.x += 15;
+	body.add(locomotive);
+
+
+	let wheel1 = createWheel();
+	let wheel2 = createWheel();
+	let wheel3 = createWheel();
+	let wheel4 = createWheel();
+	
+	wheel1.position.y -= 5;
+	wheel1.position.z -= 6;
+	wheel1.position.x -= 5;
+	wheel1.rotation.x = -Math.PI / 2;
+	body.add(wheel1);
+
+	wheel2.position.y -= 5;
+	wheel2.position.z -= 6;
+	wheel2.position.x += 5;
+	wheel2.rotation.x = -Math.PI / 2;
+	body.add(wheel2);
+
+	wheel3.position.y -= 5;
+	wheel3.position.z += 6;
+	wheel3.position.x -= 5;
+	wheel3.rotation.x = -Math.PI / 2;
+	body.add(wheel3);
+
+	wheel4.position.y -= 5;
+	wheel4.position.z += 6;
+	wheel4.position.x += 5;
+	wheel4.rotation.x = -Math.PI / 2;
+	body.add(wheel4);
+
+	return body;
+}
+///按鈕
+function resetPos (event) {
+	// convert to NDC
+	let ndcX = (event.clientX / window.innerWidth) * 2 - 1;
+	let ndcY = -(event.clientY / window.innerHeight) * 2 + 1;
+
+	// convert to HUD scene coordinate
+	let halfW = cameraHUD.right;
+	let halfH = cameraHUD.top;
+	let xx = ndcX * halfW;
+	let yy = ndcY * halfH;
+
+	// button location: ((halfW- halfW/10),(halfH- halfW/10))
+	let buttonCenter = new THREE.Vector2 ((halfW-halfW/10), (halfH-halfW/10));
+	let mouse = new THREE.Vector2 (xx, yy);
+	if (mouse.distanceTo (buttonCenter) < halfW/15) {
+		pos.copy( new THREE.Vector3(-400, 8, 150) );
+	}
+
+}
+
+function accelerate(event){
+	// convert to NDC
+	let ndcX = (event.clientX / window.innerWidth) * 2 - 1;
+	let ndcY = -(event.clientY / window.innerHeight) * 2 + 1;
+
+	// convert to HUD scene coordinate
+	let halfW = cameraHUD.right;
+	let halfH = cameraHUD.top;
+	let xx = ndcX * halfW;
+	let yy = ndcY * halfH;
+	
+	// button location: ((halfW- halfW/10),-(halfH- halfW/10))
+	let buttonCenter = new THREE.Vector2 ((halfW-halfW/10), -(halfH-halfW/10));
+	let mouse = new THREE.Vector2 (xx, yy);
+	if (mouse.distanceTo (buttonCenter) < halfW/15) {
+		power *= 1.2;   
+	}
+}
+
+function deceleration(event){
+	// convert to NDC
+	let ndcX = (event.clientX / window.innerWidth) * 2 - 1;
+	let ndcY = -(event.clientY / window.innerHeight) * 2 + 1;
+
+	// convert to HUD scene coordinate
+	let halfW = cameraHUD.right;
+	let halfH = cameraHUD.top;
+	let xx = ndcX * halfW;
+	let yy = ndcY * halfH;
+	
+	// button location: ((halfW- halfW/10) - halfW/4,-(halfH- halfW/10))
+	let buttonCenter = new THREE.Vector2 ((halfW-halfW/10) - halfW/4, -(halfH-halfW/10));
+	let mouse = new THREE.Vector2 (xx, yy);
+	if (mouse.distanceTo (buttonCenter) < halfW/15) {
+		power /= 1.2;   
+	}
+}
+
+function stop(event){
+	// convert to NDC
+	let ndcX = (event.clientX / window.innerWidth) * 2 - 1;
+	let ndcY = -(event.clientY / window.innerHeight) * 2 + 1;
+
+	// convert to HUD scene coordinate
+	let halfW = cameraHUD.right;
+	let halfH = cameraHUD.top;
+	let xx = ndcX * halfW;
+	let yy = ndcY * halfH;
+	
+	// button location: ((halfW- halfW/10) - halfW/2,-(halfH- halfW/10))
+	let buttonCenter = new THREE.Vector2 ((halfW-halfW/10) - halfW/2, -(halfH-halfW/10));
+	let mouse = new THREE.Vector2 (xx, yy);
+	if (mouse.distanceTo (buttonCenter) < halfW/15) {
+		power = 0.1;   
+	}
+}
+
+function turnLeft(){
+	// convert to NDC
+	let ndcX = (event.clientX / window.innerWidth) * 2 - 1;
+	let ndcY = -(event.clientY / window.innerHeight) * 2 + 1;
+
+	// convert to HUD scene coordinate
+	let halfW = cameraHUD.right;
+	let halfH = cameraHUD.top;
+	let xx = ndcX * halfW;
+	let yy = ndcY * halfH;
+	
+	// button location: (-(halfW- halfW/10),-(halfH- halfW/10))
+	let buttonCenter = new THREE.Vector2 (-(halfW-halfW/10), -(halfH-halfW/10));
+	let mouse = new THREE.Vector2 (xx, yy);
+	if (mouse.distanceTo (buttonCenter) < halfW/15) {
+		vel.applyAxisAngle(new THREE.Vector3(0,1,0), 0.2);
+	}
+}
+
+function turnRight(){
+	// convert to NDC
+	let ndcX = (event.clientX / window.innerWidth) * 2 - 1;
+	let ndcY = -(event.clientY / window.innerHeight) * 2 + 1;
+
+	// convert to HUD scene coordinate
+	let halfW = cameraHUD.right;
+	let halfH = cameraHUD.top;
+	let xx = ndcX * halfW;
+	let yy = ndcY * halfH;
+	
+	// button location: (-(halfW- halfW/10) + halfW/2,-(halfH- halfW/10))
+	let buttonCenter = new THREE.Vector2 (-(halfW-halfW/10)+ halfW/4, -(halfH-halfW/10));
+	let mouse = new THREE.Vector2 (xx, yy);
+	if (mouse.distanceTo (buttonCenter) < halfW/15) {
+		vel.applyAxisAngle(new THREE.Vector3(0,1,0), -0.2);
+	}
+}
+///創建地圖
+function createMap(){
+	let map = new THREE.Object3D();
+	
+  let loader = new THREE.TextureLoader();
+  loader.crossOrigin = '';
+  let roadtex = loader.load(roadtexture);
+	let roadmat = new THREE.MeshPhongMaterial({
+  	map: roadtex
+  })
+  
+  let road1 = createRoad(15);
+  map.add(road1);
+  
+
+  let road2 = createRoad(15);
+  road2.position.y -= 300;
+  road2.rotation.z = Math.PI;
+  map.add(road2);
+  
+  let road3 =  createRoad(5);
+  road3.position.y -= 150;
+  road3.position.x += 170;
+  road3.rotation.z = -Math.PI/2;
+  map.add(road3);
+  
+  let crossroad1 = createCrossRoad();
+  map.add(crossroad1);
+  
+  let crossroad2 = crossroad1.clone();
+  crossroad2.position.x += 750;
+  map.add(crossroad2);
+  
+  
+  let road4 = createRoad(15);
+  road4.position.x += 750;
+  map.add(road4);
+  
+  let road5 = createRoad(15);
+  road5.position.copy( road2.position );
+  road5.rotation.copy( road2.rotation );
+  road5.position.x += 750;
+  map.add(road5);  
+  
+  let road6 = createRoad(10);
+  road6.position.copy( road1.position );  
+  road6.position.x += 950;
+  road6.position.y -= 150;
+  road6.rotation.z = -Math.PI/2;
+  map.add(road6);
+  
+  let road7 = createRoad(11);
+  road7.position.copy( road6.position );   
+  road7.rotation.copy( road6.rotation );  
+  road7.position.x -= 100;
+  road7.position.y -= 600;
+  map.add(road7);
+  
+  let road8 = createRoad(11);
+  road8.position.copy( road7.position );   
+  road8.rotation.copy( road7.rotation );  
+  road8.position.y -= 600;
+  map.add(road8);  
+  
+  let road9 = createRoad(11);
+  road9.position.copy( road6.position );   
+  road9.rotation.copy( road6.rotation );  
+  road9.position.x -= 100;  
+  road9.position.y += 600;
+  map.add(road9);
+  
+  let road10 = createRoad(11);
+  road10.position.copy( road9.position );   
+  road10.rotation.copy( road9.rotation );  
+  road10.position.y += 600;
+  map.add(road10);
+  
+  let road11 = createRoad(5);
+  road11.position.copy( road6.position ) 
+  road11.position.x += 500;  
+  road11.position.y += 700;  
+  map.add(road11);
+  
+  let crossroad3 = createCrossRoad();
+  crossroad3.position.copy( road6.position );
+  crossroad3.position.x += 1100;
+  crossroad3.position.y += 50;
+  map.add(crossroad3);
+  
+  
+  let crossroad4 = crossroad3.clone();
+  crossroad4.position.y -= 600;
+  map.add(crossroad4);  
+  
+  let crossroad5 = crossroad3.clone();
+  crossroad5.position.y -= 1200;
+  map.add(crossroad5);    
+  
+  let crossroad6 = crossroad3.clone();
+  crossroad6.position.y += 600;
+  map.add(crossroad6);    
+  
+  let crossroad7 = crossroad3.clone();
+  crossroad7.position.y += 1200;
+  map.add(crossroad7);     
+  
+  let road12 = createRoad(5);
+  road12.position.copy( road11.position ) 
+  road12.rotation.copy( road11.rotation );
+  road12.position.x += 600;  
+  road12.position.z -= 1;
+  map.add(road12);  
+  
+  let road13 = createRoad(3);
+  road13.position.copy( road12.position ) 
+  road13.rotation.copy( road12.rotation );
+  road13.position.y += 650;  
+  map.add(road13);   
+  
+  let road14 = createRoad(5);
+  road14.position.copy( road12.position ) 
+  road14.rotation.copy( road12.rotation );
+  road14.position.y -= 650;  
+  map.add(road14);    
+
+  let road15 = createRoad(5);
+  road15.position.copy( road12.position ) 
+  road15.rotation.copy( road12.rotation );
+  road15.position.y -= 1250;  
+  map.add(road15);   
+
+  let road16 = createRoad(4);
+  road16.position.copy( road12.position ) 
+  road16.rotation.copy( road12.rotation );
+  road16.position.y -= 1750;  
+  map.add(road16);   
+
+  let road17 = createRoad(3);
+  road17.position.copy( road12.position ) 
+  road17.rotation.copy( road12.rotation );
+  road17.position.y -= 2250;  
+  map.add(road17);   
+
+	let road18 = createRoad(5);
+  road18.position.copy( road6.position );
+  road18.rotation.copy( road6.rotation );  
+  road18.position.x += 1200;
+  map.add(road18);
+
+	let road19 = createRoad(5);
+  road19.position.copy( road18.position );
+  road19.rotation.copy( road18.rotation );  
+  road19.position.y += 600;
+  map.add(road19);
+
+	let road20 = createRoad(5);
+  road20.position.copy( road18.position );
+  road20.rotation.copy( road18.rotation );  
+  road20.position.y += 1200;
+  map.add(road20);
+
+	let road21= createRoad(5);
+  road21.position.copy( road18.position );
+  road21.rotation.copy( road18.rotation );  
+  road21.position.y -= 600;
+  map.add(road21);
+
+	let road22 = createRoad(5);
+  road22.position.copy( road18.position );
+  road22.rotation.copy( road18.rotation );  
+  road22.position.y -= 1200;
+  map.add(road22);
+  
+  let road23 = createRoad(32);
+  road23.position.copy( road18.position );
+  road23.position.x += 500;
+  road23.position.y -= 1550;
+	map.add(road23);
+
+	let road24 = createRoad(26);
+	road24.position.x += 2550;
+ 	road24.position.y += 1500; 
+  road24.position.z -= 1; 
+  road24.rotation.z = Math.PI/2;
+  map.add(road24);
+  
+ 	let road25 = createRoad(26);
+	road25.position.x += 2550;
+ 	road25.position.y -= 1800; 
+  road25.position.z -= 1; 
+  road25.rotation.z = Math.PI/2;
+  map.add(road25);
+  
+  let corner1 = createCorner();
+  corner1.position.y += 1450;
+  corner1.position.x -= 50;
+  corner1.rotation.x = Math.PI/2;
+  map.add(corner1);
+   
+  let corner2 = createCorner();
+  corner2.position.y -= 1850;
+  corner2.position.x += 50;
+  corner2.rotation.x = Math.PI/2;
+  corner2.rotation.y = Math.PI/2;
+  map.add(corner2); 
+  
+  let corner3 = createCorner();
+  corner3.position.y += 1550;
+  corner3.position.x += 2600;
+  corner3.rotation.x = Math.PI/2;
+  corner3.rotation.y = -Math.PI/2;
+  map.add(corner3);  
+
+  let corner4 = createCorner();
+  corner4.position.y -= 1750;
+  corner4.position.x += 2700;
+  corner4.rotation.x = Math.PI/2;
+  corner4.rotation.y = Math.PI;
+  map.add(corner4);  
+
+	let parkinglot = new THREE.Mesh( new THREE.PlaneGeometry(500, 800), new THREE.MeshPhongMaterial({
+  	color: 0x2b2e33
+  }) );
+	parkinglot.position.set( -400, -100, 0 );
+	map.add(parkinglot);
+
+	let building1 = new THREE.Mesh( new THREE.BoxGeometry(250, 500, 250), new THREE.MeshNormalMaterial() );
+	building1.position.set( -650, -100, 125 );
+	map.add(building1);
+	
+	let building2 = new THREE.Mesh( new THREE.BoxGeometry(250, 350, 250), new THREE.MeshNormalMaterial() );
+	building2.position.set( 1000, 700, 125 );
+	map.add(building2);
+	
+	let building3 = new THREE.Mesh( new THREE.BoxGeometry(700, 350, 450), new THREE.MeshNormalMaterial() );
+	building3.position.set( 1350, 200, 225 );
+	map.add(building3);
+	
+	let building4 = new THREE.Mesh( new THREE.BoxGeometry(700, 200, 600), new THREE.MeshNormalMaterial() );
+	building4.position.set( 1400, -400, 300 );
+	map.add(building4);
+	
+	let building5 = new THREE.Mesh( new THREE.BoxGeometry(900, 300, 400), new THREE.MeshNormalMaterial() );
+	building5.position.set( 1500, -1000, 200 );
+	map.add(building5);
+	
+	let building6 = new THREE.Mesh( new THREE.BoxGeometry(1000, 200, 300), new THREE.MeshNormalMaterial() );
+	building6.position.set( 1300, -1550, 150 );
+	map.add(building6);
+	
+	let building7 = new THREE.Mesh( new THREE.BoxGeometry(200, 200, 300), new THREE.MeshNormalMaterial() );
+	building7.position.set( 2300, -450, 150 );
+	map.add(building7);
+	
+	
+
+	let sidewallkTex = loader.load(sidewallktexture);
+	sidewallkTex.repeat.set(100, 100);
+	sidewallkTex.wrapS = THREE.RepeatWrapping;
+	sidewallkTex.wrapT = THREE.RepeatWrapping;
+	
+	let sidewallkMat = new THREE.MeshPhongMaterial({
+		map: sidewallkTex
+	});
+
+  
+	let sidewallk = new THREE.Mesh( new THREE.PlaneGeometry(3000, 3500), sidewallkMat );
+	sidewallk.position.set(1300, -100, -2.5);
+	map.add(sidewallk);
+	
+  return map;
+}
+
+function createCorner(){
+	var geometry = new THREE.Geometry();
+  geometry.vertices.push(
+			new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(100, 0, 0),
+      new THREE.Vector3(100, 0, -100),
+      new THREE.Vector3(0, 0, -100)
+  )
+  
+  var face;
+  face = new THREE.Face3(3, 0, 1);
+  geometry.faces.push(face);
+  face = new THREE.Face3(2, 3, 1);
+  geometry.faces.push(face);
+  
+  geometry.computeBoundingSphere();
+  geometry.computeFaceNormals();
+  geometry.computeVertexNormals();
+  
+  geometry.faceVertexUvs[0].push([ new THREE.Vector2(0,1), new THREE.Vector2(0, 0), new THREE.Vector2(1,0) ]);
+  geometry.faceVertexUvs[0].push([ new THREE.Vector2(0,1), new THREE.Vector2(0, 0), new THREE.Vector2(1,0) ]);
+  
+  
+  let loader = new THREE.TextureLoader();
+  loader.crossOrigin = '';
+  let tex = loader.load(roadtexture);
+	let mat = new THREE.MeshPhongMaterial({
+  	map: tex
+  });
+  
+  return new THREE.Mesh(geometry, mat);
+}
+
+function createRoad(n){
+
+	let road = new THREE.Object3D();
+
+	let loader = new THREE.TextureLoader();
+  loader.crossOrigin = '';
+  let roadtex = loader.load(roadtexture);
+	let roadmat = new THREE.MeshPhongMaterial({
+  	map: roadtex
+  })
+  
+  
+  for(let i = 0 ; i < n; i++){
+		let roadpart = new THREE.Mesh( new THREE.PlaneGeometry(100, 100), roadmat ); 	
+    roadpart.position.y += 100*i; 
+  	road.add(roadpart);
+  }
+
+	return road;
+}
+
+function createCrossRoad(){
+  
+  let crossroad = new THREE.Object3D();
+  
+  let plane1 = new THREE.Mesh( new THREE.PlaneGeometry(100, 100), new THREE.MeshPhongMaterial({
+  	color: 0x2e2e30
+  }) ); 
+  crossroad.position.y -= 100;
+  
+  
+  let line = new THREE.Mesh( new THREE.PlaneGeometry(10, 30), new THREE.MeshPhongMaterial({
+  	color: 0xffffff
+  })  );
+  line.position.y += 35;
+  line.position.z += 0.3;
+  
+  let line2 = new THREE.Mesh( new THREE.PlaneGeometry(10, 30), new THREE.MeshPhongMaterial({
+  	color: 0xffffff
+  })  );
+  line2.position.y += 35;
+  line2.position.z += 0.3;
+  line2.position.x += 23;
+  
+  let line3 = new THREE.Mesh( new THREE.PlaneGeometry(10, 30), new THREE.MeshPhongMaterial({
+  	color: 0xffffff
+  })  );
+  line3.position.y += 35;
+  line3.position.z += 0.3;
+  line3.position.x += 45;
+
+  let line4 = new THREE.Mesh( new THREE.PlaneGeometry(10, 30), new THREE.MeshPhongMaterial({
+  	color: 0xffffff
+  })  );
+  line4.position.y += 35;
+  line4.position.z += 0.3;
+  line4.position.x -= 23;
+
+  let line5 = new THREE.Mesh( new THREE.PlaneGeometry(10, 30), new THREE.MeshPhongMaterial({
+  	color: 0xffffff
+  })  );
+  line5.position.y += 35;
+  line5.position.z += 0.3;
+  line5.position.x -= 45;
+  
+  
+  plane1.add(line, line2, line3, line4, line5);
+  
+  
+  let plane2 = plane1.clone();
+  plane2.rotation.z = Math.PI/2;
+  plane2.position.x -= 100;
+  plane2.position.y -= 50;
+  
+  let plane3 = plane1.clone();
+  plane3.rotation.z = -Math.PI/2;
+  plane3.position.x += 100;
+  plane3.position.y -= 50;  
+  
+  let plane4 = plane1.clone();
+  plane4.rotation.z = Math.PI;
+  plane4.position.y -= 100;
+  
+  
+  crossroad.add(plane1, plane2, plane3, plane4);
+  
+  return crossroad;
+}
+///
+window.focus();
+</script>
+</body>
+
+</html>

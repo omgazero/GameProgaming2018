@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+<style>
+#info {
+  position: absolute;
+  top: 0px;
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  color: #ff0000;
+}
+
+#gui {
+    position: absolute;
+    top: 40px;
+    left: 20px;
+    height: 350px;
+}
+
+</style>
+</head>
+
+<body> 
+<div id="info">
+  homework0
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/96/three.min.js"></script>
+<script src="https://threejs.org/examples/js/controls/OrbitControls.js">
+
+
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r16/Stats.min.js"></script>
+
+<script>
+
+var frame, scene, light, camera, renderer, controls, stats;
+var angle = -1.5;
+var railtexture = 'https://i.imgur.com/ncNEl7J.png';
+var railtexture2 = 'https://i.imgur.com/whfllTD.png';
+var railtexture3 = 'https://i.imgur.com/awDixpM.png';
+var landtexture = 'https://i.imgur.com/WCrovvX.jpg';
+var smiletexture = 'https://i.imgur.com/p9v4EYP.png';
+var x1 = 35;
+var x2 = -35;
+var r1 = 55,
+  r2 = -55;
+var turn = 0.5;
+
+init();
+animate();
+
+
+function init() {
+  renderer = new THREE.WebGLRenderer();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x888888);
+  document.body.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
+  camera.position.y = 120;
+  camera.position.z = 200;
+
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+  stats = new Stats();
+  stats.showPanel(0);
+  stats.domElement.style.position = 'absolute';
+  stats.domElement.style.left = '0px';
+  stats.domElement.style.top = '0px';
+  document.body.appendChild(stats.domElement);
+
+
+  light = new THREE.SpotLight(0xffffff, 1, 400);
+  light.angle = 0.37;
+  light.penumbra = 0.3;
+  light.position.set(0, 300, 0);
+
+  scene.add(light);
+
+  var ambientLight = new THREE.AmbientLight(0x444444);
+  scene.add(ambientLight);
+
+
+  frame = createThomas();
+  frame.position.y = 10;
+  frame.position.z = 50*Math.sin(angle);
+  scene.add(frame);
+  
+  ///創立軌道
+  var rail1 = createRail();
+  
+  rail1.position.z -= 50;
+  scene.add(rail1);
+  
+  var rail2 = createRail();
+  
+  rail2.position.z += 50;
+  scene.add(rail2);
+  
+  var rail3 = createRail2();
+  rail3.position.x -= 50;
+  rail3.position.y -= 0.1;
+  rail3.position.z += 4;
+  scene.add(rail3);
+  
+  var rail4 = createRail2();
+  rail4.position.x += 50;
+  rail4.position.y -= 0.1;
+  rail4.position.z += 4;
+  rail4.rotation.y = Math.PI;
+  scene.add(rail4);
+  
+  let loader = new THREE.TextureLoader();
+  loader.crossOrigin = '';
+  var textureA = loader.load(railtexture);
+  var textureB = loader.load(landtexture);
+
+
+
+
+  var land = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshPhongMaterial({
+    map: textureB,
+  }));
+  land.rotation.x = -Math.PI / 2;
+  land.position.y -= 0.2;
+  scene.add(land);
+  ///
+
+  /* var gridXZ = new THREE.GridHelper(200, 20, 'red', 'white');
+   scene.add(gridXZ);*/
+}
+
+function animate() {
+
+  stats.begin();
+  controls.update();
+
+  stats.end();
+  requestAnimationFrame(animate);
+  render();
+	//行駛方向
+  frame.position.x += turn;
+  //到達r1或r2時改變行駛方向
+  if (frame.position.x >= r1) {
+    turn *= -1;
+
+  } else if (frame.position.x <= r2) {
+    turn *= -1;
+
+  }
+
+	//修正角度
+  if (frame.position.x === x1) {
+    angle = -1.5;
+    if (Math.abs(frame.rotation.y) !== Math.PI && turn < 0) {
+      frame.rotation.y = -Math.PI
+      console.log(frame.rotation.y);
+    }
+  }
+
+  if (frame.position.x === x2) {
+    angle = 1.5;
+    if (Math.abs(frame.rotation.y) !== Math.PI && turn > 0) {
+      frame.rotation.y = 0
+    }
+  }
+	//到達x1或x2時開始曲線移動
+  if (frame.position.x > x1) {
+  
+  	angle -= 0.04;
+    frame.position.z = 50*Math.sin(angle);
+    frame.rotation.y = angle + Math.PI / 2;
+  } else if (frame.position.x < x2) {
+  
+  	angle -= 0.04;
+    frame.position.z = 50*Math.sin(angle);
+    frame.rotation.y = angle + Math.PI / 2;
+  }
+  
+  ////
+ /* angle -= 0.05;
+  frame.position.set (-50*Math.cos(angle), 0, 50*Math.sin(angle))
+  frame.rotation.y = angle + Math.PI/2*/
+ ////
+}
+
+function render() {
+
+  renderer.render(scene, camera);
+}
+
+function createThomas() {
+
+  let body = new THREE.Object3D();
+  body.add(new THREE.Mesh(new THREE.BoxGeometry(20, 10, 10, 20), new THREE.MeshPhongMaterial({color: 0x416bf4})));
+
+
+  let loader = new THREE.TextureLoader();
+  loader.crossOrigin = '';
+  let smile = loader.load(smiletexture);
+
+  let face = new THREE.Mesh(new THREE.CircleGeometry(4, 10), new THREE.MeshPhongMaterial({
+    map: smile,
+    transparent: true,
+    side: THREE.DoubleSide
+  }))
+  face.position.y -= 6;
+  face.rotation.z = -Math.PI / 2;
+  face.rotation.x = Math.PI / 2;
+
+
+  let locomotive = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 12, 20, 20, true), new THREE.MeshPhongMaterial({color: 0xf4f124}));
+  locomotive.rotation.z = Math.PI / 2;
+  locomotive.position.x += 10;
+  locomotive.add(face);
+  body.add(locomotive);
+
+  let chimney = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 5, 20, 20), new THREE.MeshPhongMaterial({color: 0x000000}));
+  chimney.position.x += 5;
+  chimney.position.y += -2;
+  chimney.rotation.z = Math.PI / 2;
+  locomotive.add(chimney);
+
+  let wheel1 = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 2, 20), new THREE.MeshPhongMaterial({color: 0x088cdd}))
+  let wheel2 = wheel1.clone();
+  let wheel3 = wheel1.clone();
+  let wheel4 = wheel1.clone();
+
+  wheel1.position.y -= 7;
+  wheel1.position.z -= 4;
+  wheel1.position.x -= 5;
+  wheel1.rotation.x = Math.PI / 2;
+  body.add(wheel1);
+
+  wheel2.position.y -= 7;
+  wheel2.position.z -= 4;
+  wheel2.position.x += 5;
+  wheel2.rotation.x = Math.PI / 2;
+  body.add(wheel2);
+
+  wheel3.position.y -= 7;
+  wheel3.position.z += 4;
+  wheel3.position.x -= 5;
+  wheel3.rotation.x = Math.PI / 2;
+  body.add(wheel3);
+
+  wheel4.position.y -= 7;
+  wheel4.position.z += 4;
+  wheel4.position.x += 5;
+  wheel4.rotation.x = Math.PI / 2;
+  body.add(wheel4);
+
+  return body;
+}
+///建立直線軌道
+function createRail(){
+  let loader = new THREE.TextureLoader();
+	loader.crossOrigin = '';
+  var texture = loader.load(railtexture2);
+
+  let rail = new THREE.Mesh(new THREE.PlaneGeometry(60, 30), new THREE.MeshBasicMaterial({
+    map: texture,
+    transparent: true,
+    side: THREE.DoubleSide
+  }));
+  rail.rotation.x = Math.PI / 2;
+  
+	return rail;
+  
+  
+  /*
+  let stick_front = new THREE.Mesh( new THREE.BoxGeometry( 20, 5, 1 , 10, 10, 10), new THREE.MeshBasicMaterial( {color: 0xdbb76f} ) );
+  
+  for(let i = 1 ; i <= 3 ;i++){
+    let stick_front2 = stick_front.clone();
+    stick_front2.position.y -= 10*i;
+    stick_front.add(stick_front2);
+  }
+  
+  let stick_back1 = new THREE.Mesh( new THREE.BoxGeometry( 3, 70, 1 , 10, 10, 10), new THREE.MeshBasicMaterial( {color: 0xce8e0e} ) );
+  stick_back1.position.x -= 5;
+  stick_back1.position.z += 1;
+  stick_back1.position.y -= 30;
+  stick_front.add( stick_back1 );
+  
+  let stick_back2 = new THREE.Mesh( new THREE.BoxGeometry( 3, 70, 1 , 10, 10, 10), new THREE.MeshBasicMaterial( {color: 0xce8e0e} ) );
+  stick_back2.position.x += 5;
+  stick_back2.position.z += 1;
+  stick_back2.position.y -= 30;
+  stick_front.add( stick_back2 );
+  
+	return stick_front;*/
+}
+//建立半圓軌道
+function createRail2(){
+	let loader = new THREE.TextureLoader();
+	loader.crossOrigin = '';
+  var texture = loader.load(railtexture3);
+
+  let rail = new THREE.Mesh(new THREE.PlaneGeometry(70, 130), new THREE.MeshBasicMaterial({
+    map: texture,
+    transparent: true,
+    side: THREE.DoubleSide
+  }));
+  rail.rotation.x = -Math.PI / 2;
+  
+	return rail;
+}
+
+</script>
+</body>
+
+</html>
