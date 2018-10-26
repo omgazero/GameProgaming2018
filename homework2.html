@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+<style>
+#info {
+  position: absolute;
+  top: 0px;
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  color: #ff0000;
+}
+
+body {
+  overflow: hidden;
+}
+
+
+</style>
+</head>
+
+<body> 
+<div id="info">
+  hw2 <a href="javascript:toggle();">dimmer</a>
+  <br><button id="play" style="width:20%">Pause Music</button> 
+</div>
+
+<audio id="soundtrack" autoplay loop style="display:none">
+<source src="sound/bgm/jazz.mp3" type='audio/mp3'>
+</audio>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/96/three.min.js"></script>
+<script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+<script src='https://jyunming-chen.github.io/WebAudio/js/shared.js'></script>
+<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+<script>
+
+window.AudioContext = window.AudioContext || window.webkitAudioContext;
+var context = new AudioContext(), collisionBuffer;
+
+var frame, scene, light, camera, renderer, controls;
+var balls = [], planes = [], blocks = [], normals = [];
+var soundTrack, isPaused = false, isDimming = false, soundVal = 1, sign = 1;
+
+$('#play').click ( function() {
+	isPaused = !isPaused;
+	if (isPaused) { 
+		$('#play').text ('Play Music')
+		soundTrack.pause()
+	} else {
+		$('#play').text ('Pause Music')
+		soundTrack.play()
+	}
+});
+
+class Point2{
+	constructor(x, y){
+		this.x = x;
+		this.y = y;
+  }
+}
+
+class Box2{
+	constructor(max, min){
+		this.max = max;
+		this.min = min;
+  
+  }
+}
+
+class Ball{
+	constructor(mesh, rad , color){
+		
+		this.pos = new THREE.Vector3();
+		this.vel = new THREE.Vector3();
+		this.force = new THREE.Vector3();
+		this.m = 1;
+		this.mesh = mesh;
+		this.radius = rad;
+		this.light = new THREE.PointLight ( color, 1, 50 );
+		scene.add( this.light );
+		scene.add( this.mesh );
+		this.mesh.material.color.copy( color.clone() );
+	}
+	
+	update(dt){
+	
+		this.vel.add(this.force.clone().multiplyScalar(dt));
+		this.pos.add(this.vel.clone().multiplyScalar(dt));
+		
+		this.collidingPlanes(planes);
+		this.collidingBlocks(blocks);
+		this.mesh.position.copy(this.pos);
+		this.light.position.copy(this.pos);
+		this.light.position.y += 20;
+	}
+	
+	collidingPlanes(planes){
+		const EPS = 1e-3;
+		const CR = 0.96;
+		for(let i = 0 ; i < planes.length; i++){
+			let plane = planes[i];
+			let point = this.pos.clone().sub(plane.ptOnPl);
+      
+			if( point.dot(plane.normal) < EPS + this.radius ){
+				playCollisionSound(collisionBuffer);
+				this.pos.copy( plane.ptOnPl.clone().add( point.projectOnPlane( plane.normal ) ) );
+				this.pos.add( plane.normal.clone().multiplyScalar( this.radius ) );
+				
+				this.vel.sub( plane.normal.clone().multiplyScalar( (1+CR ) * this.vel.dot( plane.normal )) );
+			}
+		}
+	}
+	
+	collidingBalls(ball2) {		//球之間的碰撞
+		//兩球距離
+    let dis = ball2.pos.clone().distanceTo(this.pos.clone());
+
+    if (dis <= this.radius * 2) {
+		//playCollisionSound(collisionBuffer);
+		let v1v2 = this.vel.clone().sub(ball2.vel.clone());
+		let v2v1 = ball2.vel.clone().sub(this.vel.clone());
+		let x1x2 = this.pos.clone().sub(ball2.pos.clone());
+		let x2x1 = ball2.pos.clone().sub(this.pos.clone());
+			
+		//碰撞後的速度
+		let vn = this.vel.clone().sub(x1x2.clone().multiplyScalar((2 * ball2.m) / (this.m + ball2.m) * v1v2.clone().dot(x1x2) / (x1x2.length() * x1x2.length())));
+
+		let vn2 = ball2.vel.clone().sub(x2x1.clone().multiplyScalar((2 * this.m) / (this.m + ball2.m) * v2v1.clone().dot(x2x1) / (x2x1.length() * x2x1.length())));
+		this.vel = vn;
+		ball2.vel = vn2; 
+
+		//位置修正
+				
+		let delta = ball2.pos.clone().sub( this.pos );
+		let diff = ( delta.length() - ( this.radius  + ball2.radius ) ) / delta.length();
+
+		this.pos.add( delta.clone().multiplyScalar( 0.5 * diff) );
+		ball2.pos.sub( delta.clone().multiplyScalar( 0.5 * diff) );
+		}
+
+  }
+	
+  collidingBlocks(blocks){
+  	const CR = 0.96;
+    for(let i=0 ; i<blocks.length; i++){
+    	let block = blocks[i];
+     
+      let point = this.pos.clone().sub(block.mesh.position);
+      
+      let n = circleRectCD( this.pos, block.mesh, this.radius, block.max, block.min );
+      
+      
+        if( n ){
+      	//	console.log(n);	
+        let blocknormal = block.normals[n-1].clone().normalize();
+
+        /*	console.log( block.normals[n-1].clone().normalize() );
+            console.log( blocknormal );*/
+		//playCollisionSound(collisionBuffer);
+        this.pos.copy( block.normals[n-1].clone().add( point.projectOnPlane( blocknormal ) ) );
+        this.pos.add( blocknormal.clone().multiplyScalar( this.radius ) );
+
+        this.vel.sub( blocknormal.clone().multiplyScalar( (1+CR ) * this.vel.dot( blocknormal )) );
+      }
+    }
+  }
+  
+}
+
+class Plane{
+	constructor(localPointOnPlane, localNormal, mesh){
+		
+		this.localPtOnPl = localPointOnPlane.clone();
+		this.localNormal = localNormal.clone();
+		this.mesh = mesh;
+		scene.add(mesh);
+	}
+	update(){
+		this.mesh.updateMatrixWorld();
+		this.ptOnPl = this.mesh.localToWorld( this.localPtOnPl.clone() );
+		let normalMat = new THREE.Matrix3().getNormalMatrix( this.mesh.matrixWorld );
+		this.normal = this.localNormal.clone().applyMatrix3( normalMat ).normalize();
+	}
+}
+
+class Block{
+	constructor(mesh, width, height){
+  	this.mesh = mesh;
+    scene.add(mesh);
+    this.max = [width/2, height/2];
+    this.min = [-width/2, -height/2];
+
+  }
+  update(){
+  	this.mesh.updateMatrixWorld();
+    
+       /*
+  	321
+    654
+    987
+  */
+	///各個邊的法線
+    this.p1 = this.mesh.localToWorld( new THREE.Vector3(this.max[0], 0, this.min[1]) );//7
+    this.p2 = this.mesh.localToWorld( new THREE.Vector3(this.max[0], 0, this.max[1]) );//1
+    this.p3 = this.mesh.localToWorld( new THREE.Vector3(this.min[0], 0, this.min[1]) );//9
+    this.p4 = this.mesh.localToWorld( new THREE.Vector3(this.min[0], 0, this.max[1]) );//3
+		
+  	this.n1 = this.mesh.localToWorld( new THREE.Vector3( this.max[0], 0, 0) );//4
+    this.n2 = this.mesh.localToWorld( new THREE.Vector3(0, 0, this.max[1]) );//2
+    this.n3 = this.mesh.localToWorld( new THREE.Vector3(this.min[0], 0, 0 ));//6
+    this.n4 = this.mesh.localToWorld( new THREE.Vector3(0, 0, this.min[1]) );//8
+    
+  
+    this.normals = [this.p2,
+    								this.n2,
+                    this.p4,
+                    this.n1,
+                    new THREE.Vector3(1, 0, 0),
+                    this.n3,
+                    this.p1,
+                    this.n4,
+                    this.p3];
+  }
+
+}
+
+init();
+animate();
+
+function init() {
+
+  soundTrack = document.getElementById('soundtrack');
+
+  renderer = new THREE.WebGLRenderer();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x888888);
+  document.body.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
+  camera.position.y = 200;
+
+	controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+	controls.enableKeys = false;
+  
+  light = new THREE.AmbientLight( 0xFFFFFF, 0.5);
+  scene.add(light);
+  
+  var light2 = new THREE.PointLight( 0xffffff, 1, 500 );
+  light2.position.set( 0, 50, 0 );
+  scene.add( light2 );
+  /*
+  var gridXZ = new THREE.GridHelper(500, 20, 'red', 'white');
+  scene.add(gridXZ);
+  */
+  var ground = new THREE.Mesh( new THREE.PlaneGeometry( 220, 220 ), new THREE.MeshPhongMaterial({color: 'gray'}) );
+  ground.rotation.x = -Math.PI/2;
+  ground.position.y -= 5;
+  scene.add( ground );
+  ///
+  let disk, ball;
+  disk = new THREE.Mesh( new THREE.CylinderGeometry( 10, 10, 6, 20 ), new THREE.MeshLambertMaterial() );
+  let hue = Math.floor( Math.random()*360 );
+  ball = new Ball( disk, 10, new THREE.Color( 'hsl('+String(hue)+'300, 100%, 50%)' ) );
+  
+  let minus = Math.floor(Math.random()*2);
+  let x = Math.floor( Math.random()*30 );
+  x = minus === 1 ? x:-x;
+  minus = Math.floor(Math.random()*2);
+  let y = Math.floor( Math.random()*30 );
+  y = minus === 1 ? y:-y;
+  ball.vel.set( x, 0, y );
+  
+  ball.pos.set( 0, 3, 60 );
+  balls.push( ball );
+ 
+  disk = new THREE.Mesh( new THREE.CylinderGeometry( 10, 10, 6, 20 ), new THREE.MeshLambertMaterial() );
+  hue = Math.floor( Math.random()*360 );
+  ball = new Ball( disk, 10, new THREE.Color( 'hsl('+String(hue)+'300, 100%, 50%)' ) );
+  
+  minus = Math.floor(Math.random()*2);
+  x = Math.floor( Math.random()*30 );
+  x = minus === 1 ? x:-x;
+  minus = Math.floor(Math.random()*2);
+  y = Math.floor( Math.random()*30 );
+  y = minus === 1 ? y:-y;
+  ball.vel.set( x, 0, y );
+  
+  ball.pos.set( -70, 3, 0 );
+  balls.push( ball );
+  
+  disk = new THREE.Mesh( new THREE.CylinderGeometry( 10, 10, 6, 20 ), new THREE.MeshLambertMaterial() );
+  hue = Math.floor( Math.random()*360 );
+  ball = new Ball( disk, 10, new THREE.Color( 'hsl('+String(hue)+'300, 100%, 50%)' ) );
+  
+  minus = Math.floor(Math.random()*2);
+  x = Math.floor( Math.random()*30 );
+  x = minus === 1 ? x:-x;
+  minus = Math.floor(Math.random()*2);
+  y = Math.floor( Math.random()*30 );
+  y = minus === 1 ? y:-y;
+  ball.vel.set( x, 0, y );
+  
+  ball.pos.set( 40, 3, -20 );
+  balls.push( ball ); 
+  
+  disk = new THREE.Mesh( new THREE.CylinderGeometry( 10, 10, 6, 20 ), new THREE.MeshLambertMaterial() );
+  hue = Math.floor( Math.random()*360 );
+  ball = new Ball( disk, 10, new THREE.Color( 'hsl('+String(hue)+'300, 100%, 50%)' ) );
+
+  minus = Math.floor(Math.random()*2);
+  x = Math.floor( Math.random()*30 );
+  x = minus === 1 ? x:-x;
+  minus = Math.floor(Math.random()*2);
+  y = Math.floor( Math.random()*30 );
+  y = minus === 1 ? y:-y;
+  ball.vel.set( x, 0, y );  
+  
+  ball.pos.set( 25, 3, 25 );
+  balls.push( ball );  
+  
+  disk = new THREE.Mesh( new THREE.CylinderGeometry( 10, 10, 6, 20 ), new THREE.MeshLambertMaterial() );
+  hue = Math.floor( Math.random()*360 );
+  ball = new Ball( disk, 10, new THREE.Color( 'hsl('+String(hue)+'300, 100%, 50%)' ) );
+
+  minus = Math.floor(Math.random()*2);
+  x = Math.floor( Math.random()*30 );
+  x = minus === 1 ? x:-x;
+  minus = Math.floor(Math.random()*2);
+  y = Math.floor( Math.random()*30 );
+  y = minus === 1 ? y:-y;
+  ball.vel.set( x, 0, y );  
+  
+  ball.pos.set( -70, 3, 60 );
+  balls.push( ball ); 
+  ///
+  let plane, wall;
+  ///上
+  wall = new THREE.Mesh( new THREE.BoxGeometry( 220, 10, 10 ), new THREE.MeshPhongMaterial({color: 'lightgray'}) );
+  wall.position.z = 105;
+  
+  plane = new Plane( new THREE.Vector3( 0, 0, -5 ), new THREE.Vector3( 0, 0, -1 ), wall );
+  plane.update();
+  planes.push(plane);
+  ///下
+  wall = new THREE.Mesh( new THREE.BoxGeometry( 220, 10, 10 ), new THREE.MeshPhongMaterial({color: 'lightgray'}) );
+  wall.position.z = -105;
+  
+  plane = new Plane( new THREE.Vector3( 0, 0, 5 ), new THREE.Vector3( 0, 0, 1 ), wall );
+  plane.update();
+  planes.push(plane); 
+  ///右
+  wall = new THREE.Mesh( new THREE.BoxGeometry( 220, 10, 10 ), new THREE.MeshPhongMaterial({color: 'lightgray'}) );
+  wall.position.x = 105;
+  wall.rotation.y = Math.PI/2;
+  plane = new Plane( new THREE.Vector3( 0, 0, -5 ), new THREE.Vector3( 0, 0, -1 ), wall );
+  plane.update();
+  planes.push(plane); 
+  
+  ///左
+  wall = new THREE.Mesh( new THREE.BoxGeometry( 220, 10, 10 ), new THREE.MeshPhongMaterial({color: 'lightgray'}) );
+  wall.position.x = -105;
+  wall.rotation.y = Math.PI/2;
+  plane = new Plane( new THREE.Vector3( 0, 0, 5 ), new THREE.Vector3( 0, 0, 1 ), wall );
+  plane.update();
+  planes.push(plane); 
+ 
+ 
+  ///blocks
+ 
+ 	let block1 = new Block( new THREE.Mesh( new THREE.BoxGeometry( 100, 10, 20 ), new THREE.MeshPhongMaterial({color: 'lightgray'}) ), 100, 20 );
+  block1.update();
+  blocks.push(block1);
+ 
+  	let block2 = new Block( new THREE.Mesh( new THREE.BoxGeometry( 100, 10, 20 ), new THREE.MeshPhongMaterial({color: 'lightgray'}) ), 100, 20 );
+  block2.mesh.rotation. y = Math.PI/2;
+  block2.update();
+  blocks.push(block2);
+  ///sound
+  loadCollisionSound('sound/se/collision_wall.wav');
+  window.addEventListener( 'resize', onWindowResize, false );
+}
+
+function animate() {
+	soundVal += sign*0.01;
+	soundVal = THREE.Math.clamp (soundVal, 0, 1);
+	soundtrack.volume = soundVal;
+	
+  for(let i = 0 ; i < balls.length ; i++){
+  
+		balls[i].update(0.1);
+	
+    for(let j = 0 ; j < balls.length ; j++){
+      if( j!==i )
+        balls[i].collidingBalls( balls[j] );
+      }
+  
+  }
+  
+  for(let i = 0 ; i < blocks.length ; i++){
+  	blocks[i].mesh.rotation.y += 0.003;
+    for(let j=0;j<blocks[i].normals.length;j++){
+    	blocks[i].normals[j].applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.003 )
+    
+    }
+   	
+  }
+  requestAnimationFrame(animate);
+  render();
+  
+  
+}
+
+function render() {
+				
+  renderer.render(scene, camera);
+}
+
+////碰撞
+function checkIntersect(r, c, rad){
+
+	let rad2 = rad * rad;
+  
+  r.max.x -= c.x; r.max.y -= c.y;
+  r.min.x -= c.x; r.min.y -= c.y; 
+  
+  /*
+  	321
+    654
+    987
+  */
+  if( r.max.x < 0  ){
+  
+  	if(r.max.y < 0)
+    		return (r.max.x * r.max.x + r.max.y * r.max.y) < rad2 ? 1:0;
+		else if(r.min.y > 0)
+    		return (r.max.x * r.max.x + r.min.y * r.min.y) < rad2 ? 7:0;
+    else
+    		return Math.abs(r.max.x) < rad ? 4:0;
+    		
+  }
+  else if( r.min.x > 0 ){
+  
+  	if( r.max.y < 0 )
+  			return  (r.max.y * r.max.y + r.min.x * r.min.x) < rad2 ? 3:0;
+ 		else if( r.min.y > 0 )
+  			return  (r.min.y * r.min.y + r.min.x * r.min.x) < rad2 ? 9:0;
+    else
+    		return r.min.x < rad ? 6:0;
+  }
+  else {
+  
+  	if( r.max.y < 0 )
+    		return Math.abs(r.max.y) < rad ? 2:0;
+    else if( r.min.y > 0 )    
+    		return r.min.y < rad ? 8:0;
+    else 
+    		return 5;
+  }
+}
+
+function circleRectCD(ballpos, mesh, rad, max, min){
+
+	c = new Point2(0, 0);
+	r = new Box2( new Point2(max[0], max[1]), new Point2(min[0], min[1]) );
+  
+  let normalMat = new THREE.Matrix3().getNormalMatrix( mesh.matrixWorld );
+  
+  let xR = new THREE.Vector3(1, 0, 0).applyMatrix3(normalMat).normalize();
+  let yR = new THREE.Vector3(0, 0, 1).applyMatrix3(normalMat).normalize();
+  
+  
+  
+  c.x = ballpos.clone().sub(mesh.position).dot(xR);
+  c.y = ballpos.clone().sub(mesh.position).dot(yR);
+  return checkIntersect(r, c, rad);
+}
+
+function loadCollisionSound(url) {
+  var request = new XMLHttpRequest();
+  request.open('GET', url, true);
+  request.responseType = 'arraybuffer';
+
+  request.onload = function() {
+    context.decodeAudioData(request.response, function(buffer) {
+      collisionBuffer = buffer;
+    }, function onError( xhr ) {});
+	
+  }
+  request.send();
+  
+}
+
+function playCollisionSound(buffer) {
+  let source = context.createBufferSource(); 
+  source.buffer = buffer;                    
+  source.connect(context.destination);       
+  source.start(0);                           
+                                             
+}
+
+function toggle(){
+	isDimming = !isDimming;
+	sign = isDimming ? -1:1;
+}
+function onWindowResize() {
+	camera.aspect = window.innerWidth / window.innerHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize( window.innerWidth, window.innerHeight );
+}
+window.focus();
+
+</script>
+</body>
+
+</html>
