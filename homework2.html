@@ -105,7 +105,8 @@ class Ball{
 			let point = this.pos.clone().sub(plane.ptOnPl);
       
 			if( point.dot(plane.normal) < EPS + this.radius ){
-				playCollisionSound(collisionBuffer);
+				if(collisionBuffer)
+					playCollisionSound(collisionBuffer);
 				this.pos.copy( plane.ptOnPl.clone().add( point.projectOnPlane( plane.normal ) ) );
 				this.pos.add( plane.normal.clone().multiplyScalar( this.radius ) );
 				
@@ -119,7 +120,8 @@ class Ball{
     let dis = ball2.pos.clone().distanceTo(this.pos.clone());
 
     if (dis <= this.radius * 2) {
-		//playCollisionSound(collisionBuffer);
+		if(collisionBuffer)
+			playCollisionSound(collisionBuffer);
 		let v1v2 = this.vel.clone().sub(ball2.vel.clone());
 		let v2v1 = ball2.vel.clone().sub(this.vel.clone());
 		let x1x2 = this.pos.clone().sub(ball2.pos.clone());
@@ -159,7 +161,8 @@ class Ball{
 
         /*	console.log( block.normals[n-1].clone().normalize() );
             console.log( blocknormal );*/
-		//playCollisionSound(collisionBuffer);
+		if(collisionBuffer)
+			playCollisionSound(collisionBuffer);
         this.pos.copy( block.normals[n-1].clone().add( point.projectOnPlane( blocknormal ) ) );
         this.pos.add( blocknormal.clone().multiplyScalar( this.radius ) );
 
