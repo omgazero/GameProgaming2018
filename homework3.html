@@ -30,12 +30,13 @@ body {
 
 <body> 
 <div id="info">
-  Keyframe animation
+  HW3
+  <a href="https://docs.google.com/document/d/1oCfMiWiWWIS5EVAYwu3JqXFjT9Evmw07JzsTbu40k6E/edit" target="_blank">keyframe</a>
   <br><button id="Dance" style="width:20%">Start Dance</button> 
 </div>
 
 <audio id="soundtrack" loop style="display:none">
-<source src="sound/bgm/TuTuTu2.mp3" type='audio/mp3'>
+<source src="sound/bgm/TuTuTu.mp3" type='audio/mp3'>
 </audio>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/96/three.min.js"></script>
@@ -62,7 +63,7 @@ $('#Dance').click ( function() {
 
 var clock = new THREE.Clock();
 
-var period = 3.1; 
+var period = 6.3; 
 var poseA1 = {
   sZ_leftArm: -1,
   sX_leftArm: 0.4,
@@ -82,7 +83,35 @@ var poseA1 = {
   sZ_rightLeg: 0.4,
   sX_rightLeg: -0.8,
   sY_rightLeg: 0.5,
-  eX_rightLeg: 0.6, 
+  eX_rightLeg: 0.8, 
+  
+  sX_head: 0.1,
+  sY_head: 0.1,
+  sZ_head: 0,
+  
+  posY: 35, 
+  posZ: 0
+};
+var poseA1p = {
+  sZ_leftArm: -1,
+  sX_leftArm: 0.6,
+  sY_leftArm: 1,
+  eX_leftArm: -1.6,
+  
+  sZ_rightArm: 1.6,
+  sX_rightArm: 0.5,
+  sY_rightArm: -0.6,
+  eX_rightArm: -2,
+  
+  sZ_leftLeg: 0.1,
+  sX_leftLeg: 0.1,
+  sY_leftLeg: 0.1,
+  eX_leftLeg: 0.1,
+  
+  sZ_rightLeg: 0.1,
+  sX_rightLeg: 0.1,
+  sY_rightLeg: 0.1,
+  eX_rightLeg: 0.1, 
   
   sX_head: 0.1,
   sY_head: 0.1,
@@ -93,7 +122,7 @@ var poseA1 = {
 };
 var poseA2 = {
   sZ_leftArm: -1,
-  sX_leftArm: 0.4,
+  sX_leftArm: 0.6,
   sY_leftArm: 1,
   eX_leftArm: -1.6,
   
@@ -110,7 +139,7 @@ var poseA2 = {
   sZ_rightLeg: 0.4,
   sX_rightLeg: -0.8,
   sY_rightLeg: 0.5,
-  eX_rightLeg: 0.6, 
+  eX_rightLeg: 0.8, 
   
   sX_head: 0.1,
   sY_head: -0.5,
@@ -138,7 +167,7 @@ var poseA3 = {
   sZ_rightLeg: 0.4,
   sX_rightLeg: -0.8,
   sY_rightLeg: 0.5,
-  eX_rightLeg: 0.6, 
+  eX_rightLeg: 0.7, 
   
   sX_head: 0.1,
   sY_head: 0.1,
@@ -148,15 +177,15 @@ var poseA3 = {
   posZ: 0
 };
 var poseA4 = {
-  sZ_leftArm: 0.2,
+  sZ_leftArm: 0.3,
   sX_leftArm: -1,
   sY_leftArm: 0.6,
-  eX_leftArm: -0.5,
+  eX_leftArm: -1.3,
   
-  sZ_rightArm: -0.2,
+  sZ_rightArm: -0.3,
   sX_rightArm: -0.8,
   sY_rightArm: -0.3,
-  eX_rightArm: -0.5,
+  eX_rightArm: -1.3,
   
   sZ_leftLeg: -0.3,
   sX_leftLeg: -0.6,
@@ -166,7 +195,7 @@ var poseA4 = {
   sZ_rightLeg: 0.4,
   sX_rightLeg: -0.8,
   sY_rightLeg: 0.5,
-  eX_rightLeg: 0.6, 
+  eX_rightLeg: 0.8, 
   
   sX_head: 0.1,
   sY_head: 0.1,
@@ -179,12 +208,12 @@ var poseA5 = {
   sZ_leftArm: -0.2,
   sX_leftArm: -1,
   sY_leftArm: 0.6,
-  eX_leftArm: -0.5,
+  eX_leftArm: -1.5,
   
   sZ_rightArm: 0.2,
   sX_rightArm: -0.8,
   sY_rightArm: -0.3,
-  eX_rightArm: -0.5,
+  eX_rightArm: -1.5,
   
   sZ_leftLeg: -0.3,
   sX_leftLeg: -0.6,
@@ -194,7 +223,7 @@ var poseA5 = {
   sZ_rightLeg: 0.4,
   sX_rightLeg: -0.8,
   sY_rightLeg: 0.5,
-  eX_rightLeg: 0.6, 
+  eX_rightLeg: 0.7, 
   
   sX_head: 0.1,
   sY_head: 0.1,
@@ -210,19 +239,19 @@ var poseB1 = {
 	sY_leftArm: 0.6,
 	eX_leftArm: -1.3,
 
-	sZ_rightArm: 0.01,
-	sX_rightArm: -1.5,
+	sZ_rightArm: -0.8,
+	sX_rightArm: -0.9,
 	sY_rightArm: 0.01,
 	eX_rightArm: -0.3,
 
-	sZ_leftLeg: -0.3,
-	sX_leftLeg: -0.8,
-	sY_leftLeg: -0.3,
-	eX_leftLeg: 0.75,
+	sZ_leftLeg: -0.1,
+	sX_leftLeg: -0.3,
+	sY_leftLeg: 0.1,
+	eX_leftLeg: 0.3,
 
 	sZ_rightLeg: 0.6,
-	sX_rightLeg: -1.2,
-	sY_rightLeg: 0.5,
+	sX_rightLeg: -0.5,
+	sY_rightLeg: 0.3,
 	eX_rightLeg: 0.7, 
 
 	sX_head: 0.3,
@@ -238,19 +267,19 @@ var poseB2 = {
 	sY_leftArm: 0.6,
 	eX_leftArm: -1.8,
 
-	sZ_rightArm: 0.01,
-	sX_rightArm: -0.9,
+	sZ_rightArm: 0.5,
+	sX_rightArm: -1.5,
 	sY_rightArm: 0.01,
 	eX_rightArm: -0.3,
 
-	sZ_leftLeg: -0.3,
-	sX_leftLeg: -0.8,
-	sY_leftLeg: -0.3,
-	eX_leftLeg: 0.75,
+	sZ_leftLeg: -0.1,
+	sX_leftLeg: -0.3,
+	sY_leftLeg: 0.1,
+	eX_leftLeg: 0.4,
 
 	sZ_rightLeg: 0.6,
 	sX_rightLeg: -1.2,
-	sY_rightLeg: 0.3,
+	sY_rightLeg: 0.1,
 	eX_rightLeg: 0.9, 
 
 	sX_head: -0.3,
@@ -266,19 +295,19 @@ var poseB3 = {
 	sY_leftArm: 0.6,
 	eX_leftArm: -1.3,
 
-	sZ_rightArm: 0.01,
-	sX_rightArm: -1.5,
+	sZ_rightArm: -1,
+	sX_rightArm: -0.5,
 	sY_rightArm: 0.01,
 	eX_rightArm: -0.3,
 
-	sZ_leftLeg: -0.3,
-	sX_leftLeg: -0.8,
-	sY_leftLeg: -0.3,
-	eX_leftLeg: 0.75,
-
+	sZ_leftLeg: -0.1,
+	sX_leftLeg: -0.3,
+	sY_leftLeg: 0.1,
+	eX_leftLeg: 0.3,
+	
 	sZ_rightLeg: 0.6,
-	sX_rightLeg: -1.2,
-	sY_rightLeg: 0.5,
+	sX_rightLeg: -0.9,
+	sY_rightLeg: 0.3,
 	eX_rightLeg: 0.7, 
 
 	sX_head: 0.3,
@@ -292,20 +321,20 @@ var poseB4 = {
 	sZ_leftArm: 0.2,
 	sX_leftArm: -0.8,
 	sY_leftArm: 0.6,
-	eX_leftArm: -0.5,
+	eX_leftArm: -1.5,
 
 	sZ_rightArm: -0.2,
 	sX_rightArm: -0.8,
 	sY_rightArm: -0.5,
-	eX_rightArm: -0.5,
+	eX_rightArm: -1.5,
 
-	sZ_leftLeg: -0.3,
-	sX_leftLeg: -0.8,
-	sY_leftLeg: -0.3,
-	eX_leftLeg: 0.75,
+	sZ_leftLeg: -0.1,
+	sX_leftLeg: -0.3,
+	sY_leftLeg: 0.1,
+	eX_leftLeg: 0.4,
 
-	sZ_rightLeg: 0.6,
-	sX_rightLeg: -1.2,
+	sZ_rightLeg: 0.3,
+	sX_rightLeg: -0.5,
 	sY_rightLeg: 0.3,
 	eX_rightLeg: 0.9, 
 
@@ -320,20 +349,20 @@ var poseB5 = {
 	sZ_leftArm: -0.2,
 	sX_leftArm: -0.8,
 	sY_leftArm: 0.6,
-	eX_leftArm: -0.5,
+	eX_leftArm: -1.3,
 
 	sZ_rightArm: 0.2,
 	sX_rightArm: -0.8,
 	sY_rightArm: -0.5,
-	eX_rightArm: -0.5,
+	eX_rightArm: -1.3,
 
-	sZ_leftLeg: -0.3,
-	sX_leftLeg: -0.8,
-	sY_leftLeg: -0.3,
-	eX_leftLeg: 0.75,
+	sZ_leftLeg: -0.1,
+	sX_leftLeg: -0.3,
+	sY_leftLeg: 0.1,
+	eX_leftLeg: 0.4,
 
-	sZ_rightLeg: 0.6,
-	sX_rightLeg: -1.2,
+	sZ_rightLeg: 0.5,
+	sX_rightLeg: -0.3,
 	sY_rightLeg: 0.3,
 	eX_rightLeg: 0.9, 
 
@@ -344,11 +373,8 @@ var poseB5 = {
 	posY: 35, 
 	posZ: 0
 };
-var keysA = [{s: 0,pose: poseA1}, {s: 0.2, pose: poseA2}, {s: 0.3, pose: poseA3}, {s: 0.4, pose: poseA2}, {s: 0.5, pose: poseA3}, {s: 0.6, pose: poseA2}, {s: 0.7, pose: poseA3}, {s: 0.8, pose: poseA4},  {s: 0.85, pose: poseA5},  {s: 0.9, pose: poseA4},  {s: 0.95, pose: poseA5}, {s: 1,pose: poseA1}, {s: 1,pose: poseA1}];
 
-var keysB = [{s: 0,pose: poseB1}, {s: 0.2, pose: poseB2}, {s: 0.3, pose: poseB3}, {s: 0.4, pose: poseB2}, {s: 0.5, pose: poseB3}, {s: 0.6, pose: poseB2}, {s: 0.7, pose: poseB3}, {s: 0.8, pose: poseB4},  {s: 0.85, pose: poseB5},  {s: 0.9, pose: poseB4},  {s: 0.95, pose: poseB5}, {s: 1,pose: poseB1}, {s: 1,pose: poseB1}];
-var keys = keysA;
-//var keys = [{s: 0,pose: poseA1}, {s: 0.04, pose: poseA2}, {s: 0.08, pose: poseA3}, {s: 0.12, pose: poseA2}, {s: 0.16, pose: poseA3}, {s: 0.20, pose: poseA2}, {s: 0.24, pose: poseA3}, {s: 0.28, pose: poseA4},  {s: 0.30, pose: poseA5},  {s: 0.32, pose: poseA4},  {s: 0.36, pose: poseA5}, {s: 0.4,pose: poseB1}, {s: 0.44, pose: poseB2}, {s: 0.48, pose: poseB3}, {s: 0.52, pose: poseB2}, {s: 0.56, pose: poseB3}, {s: 0.6, pose: poseB2}, {s: 0.64, pose: poseB3}, {s: 0.68, pose: poseB4},  {s: 0.72, pose: poseB5},  {s: 0.76, pose: poseB4},  {s: 0.8, pose: poseB5}, {s: 0.84,pose: poseA1}, {s: 1,pose: poseA1}];
+var keys = [{s: 0,pose: poseA1}, {s: 0.1, pose: poseA2}, {s: 0.15, pose: poseA3}, {s: 0.2, pose: poseA2}, {s: 0.25, pose: poseA3}, {s: 0.3, pose: poseA2}, {s: 0.35, pose: poseA3}, {s: 0.4, pose: poseA4},  {s: 0.425, pose: poseA5},  {s: 0.45, pose: poseA4},  {s: 0.475, pose: poseA5}, {s: 0.5,pose: poseB1}, {s: 0.6, pose: poseB2}, {s: 0.65, pose: poseB3}, {s: 0.7, pose: poseB2}, {s: 0.75, pose: poseB3}, {s: 0.8, pose: poseB2}, {s: 0.85, pose: poseB3}, {s: 0.9, pose: poseB4},  {s: 0.925, pose: poseB5},  {s: 0.95, pose: poseB4},  {s: 0.975, pose: poseB5}, {s: 0.98,pose: poseA1p}, {s: 1,pose: poseA1}];
 ///
 init();
 animate();
@@ -356,53 +382,64 @@ animate();
 
 function init() {
 
-  soundTrack = document.getElementById('soundtrack');
-  renderer = new THREE.WebGLRenderer();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setClearColor(0x888888);
-  document.body.appendChild(renderer.domElement);
+	soundTrack = document.getElementById('soundtrack');
+	
+	renderer = new THREE.WebGLRenderer();
+	renderer.setSize(window.innerWidth, window.innerHeight);
+	renderer.setClearColor(0x888888);
+	document.body.appendChild(renderer.domElement);
 
-  scene = new THREE.Scene();
+	scene = new THREE.Scene();
 
-  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
- // camera.position.y = -200;
-  camera.position.z = 300;
+	camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
+	camera.position.z = 300;
 
-  controls = new THREE.OrbitControls(camera, renderer.domElement);
+	controls = new THREE.OrbitControls(camera, renderer.domElement);
 
+	light = new THREE.SpotLight(0xffffff, 1, 1000);
+	light.position.set(0, 200, 300);
+	scene.add(light);
 
-  light = new THREE.SpotLight(0xffffff, 1, 400);
-  light.position.set(0, 200, 100);
-  scene.add(light);
-  
-  var spotLightHelper = new THREE.SpotLightHelper( light );
-scene.add( spotLightHelper );
-  
-  var ambientLight = new THREE.AmbientLight(0x444444);
-  scene.add(ambientLight);
-  
-  
-  var gridXZ = new THREE.GridHelper(200, 20, 'red', 'white');
-  gridXZ.position.set(0, -80, 0);
-  scene.add(gridXZ);
+	ambientLight = new THREE.AmbientLight(0x444444);
+	scene.add(ambientLight);
 
-	var plane = new THREE.Mesh( new THREE.PlaneGeometry(200, 200), new THREE.MeshPhongMaterial() );
-  plane.position.y -= 100;
-  plane.rotation.x = -Math.PI/2;
+	/* var gridXZ = new THREE.GridHelper(200, 20, 'red', 'white');
+	gridXZ.position.set(0, -80, 0);
+	scene.add(gridXZ);*/
+
+	var plane = new THREE.Mesh( new THREE.PlaneGeometry(2000, 2000), new THREE.MeshPhongMaterial() );
+	plane.position.y -= 70;
+	plane.rotation.x = -Math.PI/2;
 	scene.add(plane);
-  
-  frame = createCharacter();
- // frame.rotation.x = -Math.PI/2;
-  scene.add(frame);
-  
-  var gyro = new THREE.Gyroscope(); 
-  gyro.add( camera );
-  frame.add(gyro);
-  
-  initGui();
 
-  window.addEventListener( 'resize', onWindowResize, false );
+	frame = createCharacter();
+	scene.add(frame);
+
+	var gyro = new THREE.Gyroscope(); 
+	gyro.add( camera );
+	frame.add(gyro);
+
+	initGui();
+	
+	window.addEventListener( 'resize', onWindowResize, false );
   
+	///shadow
+	light.castShadow = true;
+	light.shadow.mapSize.width = 1024;
+	light.shadow.mapSize.height = 1024;
+	light.shadow.camera.near = 90;
+	light.shadow.camera.far = 100;
+	light.shadow.camera.fov = light.angle / Math.PI * 180 *2;
+	light.shadow.bias = -0.01;
+	/*slhelper = new THREE.SpotLightHelper(light);
+	lschelper = new THREE.CameraHelper(light.shadow.camera);
+	scene.add(slhelper);
+	scene.add(lschelper);*/
+	
+	light.target = frame;
+  	plane.receiveShadow = true;
+	renderer.shadowMap.enabled = true;
+	renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 }
 
 function animate() {
@@ -489,10 +526,7 @@ function initGui(){
 
 function keyFrame(){
   
-  
-  
   let t = clock.getElapsedTime() % period;
- // console.log(  t );
   let i ;
   let s = t / period; 
   
@@ -570,12 +604,12 @@ function keyFrame(){
   
   
 	
-	if( keys[i+1].s > 0.95 ){
+	/*if( keys[i+1].s > 0.95 ){
 		if( keys === keysA)
 			keys = keysB;
 		else
 			keys = keysA;
-	}
+	}*/
   
 }
 
@@ -616,17 +650,23 @@ function update(){
 }
 
 function createCharacter(){
-
-	let character = new THREE.Object3D();
+  let loader = new THREE.TextureLoader();
+  loader.crossOrigin = '';
+  texture = loader.load('images/wood.png');
+  var texMat = new THREE.MeshPhongMaterial({
+    map: texture
+  });
   
-  let body = new THREE.Mesh(new THREE.BoxGeometry(40, 70, 20), new THREE.MeshNormalMaterial());
+  let character = new THREE.Object3D();
+  let body = new THREE.Mesh(new THREE.BoxGeometry(40, 70, 20), texMat);
+  body.castShadow = true;
   body.position.set(0, 35, 0);
   character.add(body);///0
   
   let neck = new THREE.Object3D();
   neck.position.set(0, 70, 0);
-  let head = new THREE.Mesh(new THREE.CylinderGeometry(15, 15, 30, 20, 20), new THREE.MeshNormalMaterial());
- // head.rotation.x = Math.PI/2;
+  let head = new THREE.Mesh(new THREE.CylinderGeometry(15, 15, 30, 20, 20), texMat);
+  head.castShadow = true;
   head.position.set(0, 15, 0);
   neck.add(head);
   character.add(neck); ///1
@@ -634,7 +674,8 @@ function createCharacter(){
   ///left arm
   let arm ;
   let upperArmL = new THREE.Object3D();
-  arm = new THREE.Mesh( new THREE.BoxGeometry(10, 10, 30), new THREE.MeshNormalMaterial() );
+  arm = new THREE.Mesh( new THREE.BoxGeometry(10, 10, 30), texMat );
+  arm.castShadow = true;
   arm.position.set( -5, -15, 0 );
   arm.rotation.x = Math.PI/2;
   upperArmL.add(arm);
@@ -642,7 +683,8 @@ function createCharacter(){
   character.add(upperArmL);///2
   
   let lowerArmL = new THREE.Object3D();
-  arm = new THREE.Mesh( new THREE.BoxGeometry(10, 10, 40), new THREE.MeshNormalMaterial() );
+  arm = new THREE.Mesh( new THREE.BoxGeometry(10, 10, 40), texMat );
+  arm.castShadow = true;
   arm.position.set(-5, -20, 0);
   arm.rotation.x = Math.PI/2;
   lowerArmL.add(arm);
@@ -651,7 +693,8 @@ function createCharacter(){
   
   ///right arm
    let upperArmR = new THREE.Object3D();
-  arm = new THREE.Mesh( new THREE.BoxGeometry(10, 10, 30), new THREE.MeshNormalMaterial() );
+  arm = new THREE.Mesh( new THREE.BoxGeometry(10, 10, 30), texMat );
+  arm.castShadow = true;
   arm.position.set( 5, -15, 0 );
   arm.rotation.x = Math.PI/2;
   upperArmR.add(arm);
@@ -659,7 +702,8 @@ function createCharacter(){
   character.add(upperArmR);///3
   
   let lowerArmR = new THREE.Object3D();
-  arm = new THREE.Mesh( new THREE.BoxGeometry(10, 10, 40), new THREE.MeshNormalMaterial() );
+  arm = new THREE.Mesh( new THREE.BoxGeometry(10, 10, 40), texMat );
+  arm.castShadow = true;
   arm.position.set(5, -20, 0);
   arm.rotation.x = Math.PI/2;
   lowerArmR.add(arm);
@@ -669,7 +713,8 @@ function createCharacter(){
   ///left leg
   let leg;
   let upperLegL = new THREE.Object3D();
-  leg = new THREE.Mesh( new THREE.BoxGeometry(10, 10, 30),  new THREE.MeshNormalMaterial() );
+  leg = new THREE.Mesh( new THREE.BoxGeometry(10, 10, 30),  texMat );
+  leg.castShadow = true;
   leg.position.set(0, -15, 0);
   leg.rotation.x = Math.PI/2;
   upperLegL.add(leg);
@@ -677,7 +722,8 @@ function createCharacter(){
   character.add(upperLegL);///4
   
   let lowerLegL = new THREE.Object3D();
-  leg = new THREE.Mesh( new THREE.BoxGeometry(10, 10, 40),  new THREE.MeshNormalMaterial() );
+  leg = new THREE.Mesh( new THREE.BoxGeometry(10, 10, 40),  texMat );
+  leg.castShadow = true;
   leg.position.set(0, -20, 0);
   leg.rotation.x = Math.PI/2;
   lowerLegL.add(leg);
@@ -686,7 +732,8 @@ function createCharacter(){
   
   ///right leg
   let upperLegR = new THREE.Object3D();
-  leg = new THREE.Mesh( new THREE.BoxGeometry(10, 10, 30),  new THREE.MeshNormalMaterial() );
+  leg = new THREE.Mesh( new THREE.BoxGeometry(10, 10, 30),  texMat );
+  leg.castShadow = true;
   leg.position.set(0, -15, 0);
   leg.rotation.x = Math.PI/2;
   upperLegR.add(leg);
@@ -694,7 +741,8 @@ function createCharacter(){
   character.add(upperLegR);///5
   
   let lowerLegR = new THREE.Object3D();
-  leg = new THREE.Mesh( new THREE.BoxGeometry(10, 10, 40),  new THREE.MeshNormalMaterial() );
+  leg = new THREE.Mesh( new THREE.BoxGeometry(10, 10, 40),  texMat );
+  leg.castShadow = true;
   leg.position.set(0, -20, 0);
   leg.rotation.x = Math.PI/2;
   lowerLegR.add(leg);
