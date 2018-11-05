@@ -537,8 +537,7 @@ function keyFrame(){
   }
   
   i = i-1;
-
-	// linearly interpolate between i & i+1
+  
   let tt = (s - keys[i].s) / (keys[i + 1].s - keys[i].s);
   
   ///leftArm
@@ -601,15 +600,6 @@ function keyFrame(){
   
   frame.children[0].position.y = posY;
   frame.children[0].position.z = posZ; 
-  
-  
-	
-	/*if( keys[i+1].s > 0.95 ){
-		if( keys === keysA)
-			keys = keysB;
-		else
-			keys = keysA;
-	}*/
   
 }
 
