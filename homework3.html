@@ -431,10 +431,10 @@ function init() {
 	light.shadow.camera.far = 100;
 	light.shadow.camera.fov = light.angle / Math.PI * 180 *2;
 	light.shadow.bias = -0.01;
-	/*slhelper = new THREE.SpotLightHelper(light);
+	slhelper = new THREE.SpotLightHelper(light);
 	lschelper = new THREE.CameraHelper(light.shadow.camera);
 	scene.add(slhelper);
-	scene.add(lschelper);*/
+	scene.add(lschelper);
 	
 	light.target = frame;
   	plane.receiveShadow = true;

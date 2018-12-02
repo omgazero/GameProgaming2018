@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+<style>
+#info {
+  position: absolute;
+  top: 0px;
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  color: #ff0000;
+}
+
+#gui {
+    position: absolute;
+    top: 40px;
+    left: 20px;
+    height: 350px;
+}
+
+body {
+  overflow: hidden;
+}
+
+
+</style>
+</head>
+
+<body> 
+<div id="info">
+  hw4
+  <br><button id="Walk" style="width:20%">Start walk</button> 
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/95/three.min.js"></script>
+<script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+<script src="https://rawgit.com/mrdoob/three.js/dev/examples/js/Gyroscope.js"></script>
+<script src="https://jyunming-chen.github.io/game3js/js/ccdsys.js"></script>
+<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+<script src="https://jyunming-chen.github.io/tutsplus/js/KeyboardState.js"></script>
+<script>
+var  scene, light, camera, renderer, controls;
+var punk_right, punkpos_right = new THREE.Vector3();
+var punk_left, punkpos_left = new THREE.Vector3();
+var clock = new THREE.Clock();
+var keyboard = new KeyboardState();
+var body, rightLeg, leftLeg, isWalk = false,isTurning = false, angle = 0,  oldPosZ = 0, oldPosY = 0, status = 2;
+var start = 15, hill1 = -17, plane2 = -43, hill2 = -70, plane3 = -97, end = -120, turn = -1;
+
+
+const LS = 5.3;
+const L2 = 5.2;
+const L1 = 4.8;
+const Lh = 3.3;
+const Hh = 8.3;
+const Hr = 0.6;
+const Fc = 1.0;
+const Ts = 1.0;
+
+$('#Walk').click ( function() {
+	isWalk = !isWalk;
+	if (isWalk) { 
+  	
+  	clock.start();
+		$('#Walk').text ('Stop Walk')
+	} else {
+	  oldPosZ = body.position.z;
+		$('#Walk').text ('Start Walk')
+	}
+});
+////////////////////
+var biped_right = {
+	thetaGroin: 0.31,
+  thetaKnee: -0.6, 
+  target: new THREE.Vector3(0, Hh, LS/2),
+  
+  init: function() {
+		let body = new THREE.Object3D();
+		let mat = new THREE.MeshNormalMaterial();
+  
+  	this.thigh = new THREE.Object3D();
+  	let thighMesh = new THREE.Mesh (new THREE.BoxGeometry(1, L2, 1), mat);
+    thighMesh.castShadow = true;
+  	this.thigh.add (thighMesh);
+  	thighMesh.position.y = -L2/2;
+  
+  	this.leg = new THREE.Object3D();
+  	let legMesh = new THREE.Mesh (new THREE.BoxGeometry(1, L1, 1), mat);
+    legMesh.castShadow = true;
+  	this.leg.add (legMesh);
+  	legMesh.position.y = -L1/2;
+  	this.leg.position.y = -L2;
+  
+  	this.torso = new THREE.Object3D();
+  	let torsoMesh = new THREE.Mesh (new THREE.BoxGeometry(1, Lh, 1), mat);
+    torsoMesh.castShadow = true;
+  	this.torso.add (torsoMesh);
+  	torsoMesh.position.y = Lh/2;
+  
+  	body.add (this.torso);
+  	body.add (this.thigh);
+  	this.thigh.add (this.leg);
+  	return body;
+	},
+  
+  update: function (thetas) {
+ // console.log (thetas);
+  	this.thetaGroin = thetas[0];
+    this.thetaKnee = thetas[1];
+  
+    this.thigh.rotation.x = this.thetaGroin;
+    this.leg.rotation.x = this.thetaKnee;  
+  }
+
+
+}
+var biped_left  = jQuery.extend({}, biped_right); 
+////////////////////
+
+////////////////////
+
+function fk(thetas, joints){
+	joints[0].set(0, 0, 0);
+	
+  var localzero = new THREE.Vector3(0, 0, 0);
+  var m = new THREE.Matrix4();
+  m.makeRotationX(thetas[0]);
+  m.multiply(new THREE.Matrix4().makeTranslation(0, -L2, 0));
+  localzero.applyMatrix4(m);
+  joints[1].copy(localzero);
+  
+  localzero.set(0, 0, 0);
+  m.multiply(new THREE.Matrix4().makeRotationX(thetas[1]));
+  m.multiply(new THREE.Matrix4().makeTranslation(0, -L1, 0));
+  localzero.applyMatrix4(m);
+  joints[2].copy(localzero); 
+}
+////////////////////
+
+////////////////////
+
+
+init();
+animate();
+
+
+function init() {
+  renderer = new THREE.WebGLRenderer();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x888888);
+  document.body.appendChild(renderer.domElement);
+
+  scene = new THREE.Scene();
+
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
+  camera.position.y = 10;
+	camera.position.x = 30;
+
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableKeys = false;
+
+  light = new THREE.DirectionalLight(0xffffff);
+  light.position.set(20, 30, 0);
+  scene.add(light);
+  
+  
+  var gridXZ = new THREE.GridHelper(1000, 100, 'red', 'white');
+  gridXZ.position.y -= 1.4;
+  scene.add(gridXZ);
+
+	var plane1 = new THREE.Mesh( new THREE.BoxGeometry(30, 35, 1), new THREE.MeshPhongMaterial() );
+  plane1.position.y -= 2;
+  plane1.rotation.x = -Math.PI/2;
+	scene.add(plane1);
+  
+  var hillplane1 = new THREE.Mesh( new THREE.BoxGeometry(30, 30, 1), new THREE.MeshPhongMaterial() );
+  hillplane1.position.z -= 30;
+  hillplane1.position.y += 5.5;
+  hillplane1.rotation.x = -1;
+	scene.add(hillplane1);  
+  
+  var plane2 = new THREE.Mesh( new THREE.BoxGeometry(30, 29, 1), new THREE.MeshPhongMaterial() );
+  plane2.position.z -= 57;
+  plane2.position.y += 13.5;
+  plane2.rotation.x = -Math.PI/2;
+	scene.add(plane2);  
+
+  var hillplane2 = new THREE.Mesh( new THREE.BoxGeometry(30, 30, 1), new THREE.MeshPhongMaterial() );
+  hillplane2.position.z -= 84;
+  hillplane2.position.y += 5.5;
+  hillplane2.rotation.x = 1;
+	scene.add(hillplane2);  
+  
+  var plane3 = new THREE.Mesh( new THREE.BoxGeometry(30, 29, 1), new THREE.MeshPhongMaterial() );
+  plane3.position.z -= 110;
+  plane3.position.y -= 2;
+  plane3.rotation.x = -Math.PI/2;
+	scene.add(plane3);  
+  ////////// punk
+  punk_right = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 20), new THREE.MeshBasicMaterial({
+        color: 0xff2211
+      }));
+  scene.add(punk_right);
+	punkpos_right.set(2, -Fc, 0.1);
+
+  punk_left = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 20), new THREE.MeshBasicMaterial({
+        color: 0x42cbf4
+      }));
+  scene.add(punk_left);
+	punkpos_left.set(-2, -Fc, 0.1);
+  
+	////////// body
+  body = createBody();
+  body.position.set(0, Hh - Hr/2 * Math.cos(0), 0);
+  scene.add(body);
+  
+  ////////// right
+  
+  biped_right.ccdSys = new CCDSys (fk);
+  biped_right.ccdSys.setCCDAxis (new THREE.Vector3(1,0,0), 0, -Math.PI, Math.PI);
+  biped_right.ccdSys.setCCDAxis (new THREE.Vector3(1,0,0), 1, -Math.PI/2, -0.1); 
+  //////////
+  
+  ////////// left
+  
+  biped_left.ccdSys = new CCDSys (fk);
+  biped_left.ccdSys.setCCDAxis (new THREE.Vector3(1,0,0), 0, -Math.PI, Math.PI);
+  biped_left.ccdSys.setCCDAxis (new THREE.Vector3(1,0,0), 1, -Math.PI/2, -0.1); 
+  //////////
+  let gyro = new THREE.Gyroscope();
+  gyro.add(camera, light);
+	body.add(gyro);
+  
+  ///shadow
+	light.castShadow = true;
+	light.shadow.mapSize.width = 1024;
+	light.shadow.mapSize.height = 1024;
+  light.shadow.camera.top = -10;
+  light.shadow.camera.left = -10;
+  light.shadow.camera.right = 10;
+  light.shadow.camera.bottom = 10;
+	light.shadow.camera.near = 0.1;
+	light.shadow.camera.far = 100;
+	light.shadow.camera.fov = light.angle / Math.PI * 180 *2;
+	light.shadow.bias = -0.01;
+  light.target = body; 
+  plane1.receiveShadow = true;
+  hillplane1.receiveShadow = true;
+  plane2.receiveShadow = true;
+  hillplane2.receiveShadow = true;
+  plane3.receiveShadow = true;
+  renderer.shadowMap.enabled = true;
+	renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  var helper = new THREE.CameraHelper( light.shadow.camera );
+scene.add( helper );
+  
+  window.addEventListener( 'resize', onWindowResize, false );
+}
+
+function animate() {
+    if(body.position.z > start){
+    	if(turn!=-1){
+        oldPosZ = body.position.z;
+        oldPosY = body.position.y - Hh;
+        clock.start();
+        turn*=-1;
+        isTurning = true;
+      }
+    }
+    else if(body.position.z < start && body.position.z > hill1){
+      if(status!=2){
+        clock.start();
+        oldPosZ = body.position.z;
+        oldPosY = body.position.y - Hh;
+        angle = 0;
+        status = 2;
+      }
+    }
+    else if(body.position.z < hill1 && body.position.z > plane2){
+
+      if(status!=1){
+        clock.start();
+        oldPosZ = body.position.z;
+        angle = 0.5;
+        status = 1;
+      }
+    }
+    else if(body.position.z < plane2 && body.position.z > hill2){
+      if(status!=2){
+        clock.start();
+        oldPosZ = body.position.z;
+        oldPosY = body.position.y - Hh;
+        angle = 0;
+        status = 2;
+      }
+    }
+    else if(body.position.z < hill2 && body.position.z > plane3){
+      if(status!=3){
+        clock.start();
+        oldPosZ = body.position.z;
+        oldPosY = body.position.y - Hh;
+        angle = -0.5;
+        status = 3;
+      }
+    }
+    else if(body.position.z < plane3 && body.position.z > end){
+      if(status!=2){
+        clock.start();
+        oldPosZ = body.position.z;
+        oldPosY = body.position.y - Hh ;
+        angle = 0;
+        status = 2;
+      }
+    }
+    else if(body.position.z < end){
+    	if(turn!=1){
+        oldPosZ = body.position.z;
+        oldPosY = body.position.y - Hh;
+        clock.start();
+        turn*=-1;
+        isTurning = true;
+      }
+    }
+    
+	if(isWalk  && !isTurning){
+    moveLeg();
+    moveBody();
+  }
+  else if(!isWalk && !isTurning){
+  	idle();
+  }
+  else if(isTurning){
+  	rotate();
+  }
+  
+	update();
+  
+  requestAnimationFrame(animate);
+  render();
+}
+
+function render() {
+				
+  renderer.render(scene, camera);
+}
+
+function update(){
+	
+	///rightLeg
+  biped_right.target.copy (rightLeg.worldToLocal (punkpos_right));
+  punk_right.position.copy(rightLeg.localToWorld(biped_right.target.clone()));
+  
+	let thetas = [biped_right.thetaGroin, biped_right.thetaKnee];
+	biped_right.ccdSys.solve (biped_right.target, thetas);
+	biped_right.update (thetas);
+  ///leftLeg
+  biped_left.target.copy (leftLeg.worldToLocal (punkpos_left));
+  punk_left.position.copy(leftLeg.localToWorld(biped_left.target.clone()));
+  
+	thetas = [biped_left.thetaGroin, biped_left.thetaKnee];
+	biped_left.ccdSys.solve (biped_left.target, thetas);
+	biped_left.update (thetas);  
+}
+
+function moveLeg(){
+  let t = clock.getElapsedTime() ;
+  let s = t / Ts; 
+  let s2 = Math.floor(s);
+  
+  let pos_right = new THREE.Vector3(2, 0, 0), pos_left = new THREE.Vector3(-2, 0, 0); 
+  if(s2%2 === 0 ){	///		even
+  	/////		right
+  	if(s2 === 0){
+    
+    	pos_right.z = 0.1;
+      pos_right.y = (Fc / -2 ) * Math.cos(2*Math.PI*s2); 
+    }
+    else {
+    
+    	pos_right.z = 2 * LS * (s2/2);
+      pos_right.y = (Fc / -2 ) * Math.cos(2*Math.PI*(s2/2)); 
+    }
+  	s = (t % Ts) / Ts;
+    pos_right.z += 2 * LS * s ;
+    pos_right.y += (Fc / -2 ) * Math.cos(2*Math.PI*s);
+    /////
+    
+    
+    /////		left
+    if(s2 === 0){
+    
+    	pos_left.z = 0.1;
+    }
+    else {
+    
+    	pos_left.z = 2 * LS * ((s2/2)+0.5) ;
+    }
+    pos_left.y = -Fc;
+    /////
+  }
+  else{						///		odd
+  	/////		right
+  	if(s2 === 1){
+    
+    	pos_right.z = 2 * LS * s2;
+    }
+    else {
+    
+    	pos_right.z = 2 * LS * Math.ceil(s2/2) ;
+    }
+    pos_right.y = -Fc;
+    /////
+    
+    
+    /////		left
+  	if(s2 === 1){
+    
+    	pos_left.z = 0.1;
+      pos_left.y = (Fc / -2 ) * Math.cos(2*Math.PI*s2); 
+    }
+    else {
+    
+    	pos_left.z = 2 * LS * (s2/2) ;
+      pos_left.y = (Fc / -2 ) * Math.cos(2*Math.PI*Math.ceil(s2/2)); 
+    }
+  	s = (t % Ts) / Ts;
+    
+    if(s2 === 1)
+  	  pos_left.z += 3 * LS * s ;
+    else
+  	  pos_left.z += 2 * LS * s;
+      
+    pos_left.y += (Fc / -2 ) * Math.cos(2*Math.PI*s);    
+    /////
+  }
+  
+	pos_right.z*=turn;
+  pos_left.z*=turn;  
+  
+  pos_right.z+=oldPosZ;
+  pos_left.z+=oldPosZ; 
+  switch(status){
+  	  
+  	case 1:		//up hill
+    	pos_right.z*=Math.cos(angle);
+		  pos_left.z*=Math.cos(angle);
+      pos_right.y+=Math.tan(angle) * -(pos_right.z-hill1-1);
+      pos_left.y+=Math.tan(angle) * -(pos_left.z-hill1-1); 
+    	break;
+    case 2:		//plane
+      pos_right.y+=oldPosY;
+      pos_left.y+=oldPosY; 
+   		break;
+    case 3:		//down hill
+    	if(turn === -1){
+        pos_right.y+= oldPosY + (Math.tan(angle) * -(pos_right.z-hill2-1));
+        pos_left.y+= oldPosY + (Math.tan(angle) * -(pos_left.z-hill2-1)); }
+      else{
+        pos_right.y+= oldPosY + (Math.tan(angle) * -(pos_right.z-plane3+1));
+        pos_left.y+= oldPosY + (Math.tan(angle) * -(pos_left.z-plane3+1)); }
+    	break;  
+    default: break;
+  }
+  punkpos_right.copy(pos_right);
+  punkpos_left.copy(pos_left);
+}
+function moveBody(){
+  let t = clock.getElapsedTime() ;
+  let s = t / Ts; 
+  let pos = new THREE.Vector3(0, Hh - Hr/2 * Math.cos(2*Math.PI*s), (LS/2 + LS*s));
+ pos.z *= turn;
+ pos.z += oldPosZ;
+
+ switch(status){
+ 		 case 1:		//up hill
+       pos.z *= Math.cos(angle);
+     	 pos.y += Math.tan(angle) * -(pos.z-hill1-1);
+       break;
+     case 2:		//plane
+       pos.y += oldPosY;
+       break;
+     case 3:		//down hill
+     //  pos.z += hill2 - (pos.z*Math.cos(angle));
+     	if(turn === -1)
+     		pos.y += oldPosY + (Math.tan(angle) * -(pos.z-hill2-1));
+      else
+     		pos.y += oldPosY + (Math.tan(angle) * -(pos.z-plane3+1));
+       break;  
+     default: break;
+ }
+ 
+  //console.log(pos.y);
+  
+  body.position.copy(pos);
+}
+function idle(){
+
+	punkpos_right.set(2, body.position.y-Hh-Fc, body.position.z);
+  punkpos_left.set(-2, body.position.y-Hh-Fc, body.position.z);
+}
+function rotate(){
+	if(body.rotation.y != Math.PI && turn === 1)
+		body.rotation.y = Math.PI;
+  else if(body.rotation.y != 0 && turn === -1)
+  	body.rotation.y = 0;
+  else
+  	isTurning = false;
+}
+function createBody(){
+	let body = new THREE.Object3D();
+  
+	rightLeg = biped_right.init();
+  rightLeg.position.set(2, 0, 0);
+  
+  leftLeg = biped_left.init();
+  leftLeg.position.set(-2, 0, 0);
+  
+  body.add(rightLeg, leftLeg);
+  
+  let hipbone = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 1), new THREE.MeshNormalMaterial());
+  hipbone.castShadow = true;
+  hipbone.position.y += Lh;
+  body.add(hipbone);
+  
+  let spine = new THREE.Mesh(new THREE.BoxGeometry(1, 8, 1), new THREE.MeshNormalMaterial());
+  spine.castShadow = true;
+  spine.position.y += Lh + 4;
+  body.add(spine);
+  
+  return body;
+}
+function onWindowResize() {
+	camera.aspect = window.innerWidth / window.innerHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize( window.innerWidth, window.innerHeight );
+}
+
+</script>
+</body>
+
+</html>
