@@ -252,8 +252,8 @@ function init() {
   plane3.receiveShadow = true;
   renderer.shadowMap.enabled = true;
 	renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  var helper = new THREE.CameraHelper( light.shadow.camera );
-scene.add( helper );
+  /*var helper = new THREE.CameraHelper( light.shadow.camera );
+scene.add( helper );*/
   
   window.addEventListener( 'resize', onWindowResize, false );
 }
