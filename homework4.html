@@ -69,6 +69,13 @@ $('#Walk').click ( function() {
 		$('#Walk').text ('Start Walk')
 	}
 });
+
+(function() {
+  Math.clamp = function(val,min,max){
+    return Math.min(Math.max(val,min),max);
+    
+  }})();
+
 ////////////////////
 var biped_right = {
 	thetaGroin: 0.31,
@@ -331,6 +338,7 @@ function animate() {
   	idle();
   }
   else if(isTurning){
+	idle()
   	rotate();
   }
   
@@ -468,13 +476,25 @@ function moveLeg(){
 function moveBody(){
   let t = clock.getElapsedTime() ;
   let s = t / Ts; 
-  let pos = new THREE.Vector3(0, Hh - Hr/2 * Math.cos(2*Math.PI*s), (LS/2 + LS*s));
+  let s2 = Math.floor(s);
+  
+  let pos;
+	if(s2 === 0)
+		pos = new THREE.Vector3(0, Hh - Hr/2 * Math.cos(2*Math.PI*s), (3*(LS/2)*s));
+	else
+		pos = new THREE.Vector3(0, Hh - Hr/2 * Math.cos(2*Math.PI*s), (LS/2 + LS*s));
+
  pos.z *= turn;
  pos.z += oldPosZ;
 
  switch(status){
- 		 case 1:		//up hill
-       pos.z *= Math.cos(angle);
+ 		case 1:		//up hill
+         pos.z *= Math.cos(angle);
+		 pos.z = Math.clamp(pos.z, plane2, hill1);
+		if(turn === -1)
+			pos.z -= 0.2;
+		else
+			pos.z +=0.2;
      	 pos.y += Math.tan(angle) * -(pos.z-hill1-1);
        break;
      case 2:		//plane
@@ -491,7 +511,7 @@ function moveBody(){
  }
  
   //console.log(pos.y);
-  
+  console.log(oldPosZ);
   body.position.copy(pos);
 }
 function idle(){
