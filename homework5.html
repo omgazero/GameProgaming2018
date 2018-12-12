@@ -61,7 +61,7 @@ var keyboard = new KeyboardState();
 var vegetaWrap;
 var box3, box3Helper;
 var clock = new THREE.Clock();
-
+var coins = [];
 init();
 animate();
 
@@ -82,7 +82,7 @@ function init() {
   controls.enableKeys = false;
   ///// Light
   light = new THREE.DirectionalLight(0xffffff);
-  light.position.set(0, 100, 150);
+  light.position.set(-100, 100, 100);
   scene.add(light);
   light.castShadow = true;
   light.shadow.mapSize.width = 1024;
@@ -99,10 +99,10 @@ function init() {
   ambientLight = new THREE.AmbientLight(0x444444);
   scene.add(ambientLight);
 	
-  var gridXZ = new THREE.GridHelper(1000, 100, 'red', 'white');
+  var gridXZ = new THREE.GridHelper(10000, 500, 'red', 'white');
   scene.add(gridXZ);
   ///// Ground
-  var ground = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), new THREE.MeshPhongMaterial());
+  var ground = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshPhongMaterial());
   ground.receiveShadow = true;
   ground.rotation.x = -Math.PI/2;
   ground.position.y -= 1;
@@ -110,6 +110,25 @@ function init() {
   
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  
+	///skybox
+	let cubeloader = new THREE.CubeTextureLoader();
+	cubeloader.crossOrigin = '';
+
+	let path = 'images/skybox/';
+	let format = '.jpg';
+	let urls = [
+				path + 'right' + format,
+				path + 'left' + format, 
+				path + 'top' + format,
+				path + 'bottom' + format,
+				path + 'front' + format,
+				path + 'back' + format
+	];
+
+
+	let cube = cubeloader.load( urls );
+	scene.background = cube;
   
   ///// Character
   
@@ -151,13 +170,20 @@ function init() {
 	box3 = new THREE.Box3();
 	box3helper = new THREE.Box3Helper(box3);
 	scene.add(box3helper);
-	
+	///// coins
+	var coin1 = createCoin();
+	coin1.position.x += 30;
+	coins.push(coin1);
+	scene.add(coin1);
+	/////
 	window.addEventListener( 'resize', onWindowResize, false );
 	document.addEventListener( 'keydown', onKeyDown, false );
 	document.addEventListener( 'keyup', onKeyUp, false );
 }
 
 function animate() {
+  getCoins();
+  console.log ('y is ' + vegetaWrap.md2.root.position.y)
   requestAnimationFrame(animate);
   render();
 }
@@ -178,13 +204,13 @@ function onKeyDown(event){
 		case 38: /*up*/
 		case 87: /*W*/ 	controls.moveForward = true; break;
 		case 40: /*down*/
-		case 83: /*S*/ 	 controls.moveBackward = true; break;
+		case 83: /*S*/ 	 controls.moveBackward = true; vegetaWrap.md2.root.rotation.y += Math.PI; break;
 		case 37: /*left*/
 		case 65: /*A*/ controls.moveLeft = true; break;
 		case 39: /*right*/
 		case 68: /*D*/ controls.moveRight = true; break;
 		case 67: /*C*/     controls.crouch = true; break;
-		case 32: /*space*/ controls.jump = true; break;
+		case 32: /*space*/ controls.jump = true;break;
 		case 17: /*ctrl*/  controls.attack = true; break;
 	}
 }
@@ -195,7 +221,7 @@ function onKeyUp( event ) {
 		case 38: /*up*/
 		case 87: /*W*/ controls.moveForward = false; break;
 		case 40: /*down*/
-		case 83: /*S*/ 	 controls.moveBackward = false; break;
+		case 83: /*S*/ 	 controls.moveBackward = false; vegetaWrap.md2.root.rotation.y -= Math.PI; break;
 		case 37: /*left*/
 		case 65: /*A*/ 	 controls.moveLeft = false; break;
 		case 39: /*right*/
@@ -203,6 +229,25 @@ function onKeyUp( event ) {
 		case 67: /*C*/     controls.crouch = false; break;
 		case 32: /*space*/ controls.jump = false; break;
 		case 17: /*ctrl*/  controls.attack = false; break;
+	}
+}
+function createCoin(){
+	let coin = new THREE.Object3D();
+	mesh = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 10, 20), new THREE.MeshPhongMaterial({color : "yellow"}));
+	mesh.castShadow = true;
+	mesh.rotation.x = Math.PI/2;
+	mesh.position.y += 15;
+	coin.add(mesh);
+	
+	return coin;
+}
+
+function getCoins(){
+	for(let i = 0; i < coins.length; i++){
+		let diff = Math.sqrt((vegetaWrap.md2.root.position.x - coins[i].position.x)*(vegetaWrap.md2.root.position.x - coins[i].position.x) + (vegetaWrap.md2.root.position.z - coins[i].position.z)*(vegetaWrap.md2.root.position.z - coins[i].position.z))
+		if(diff <= 20){
+			console.log('getCoin ' + 'diff = ' + diff);
+		}
 	}
 }
 
