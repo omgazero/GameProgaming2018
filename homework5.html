@@ -312,7 +312,10 @@ function animate() {
   for(let i = 0; i < coins.length ; i++){
 	coins[i].update(i);
   }
-  numberOfCoins_text.text = numberOfCoins.toString() + '/50';
+  if( numberOfCoins < 50)
+	numberOfCoins_text.text = numberOfCoins.toString() + '/50';
+  else
+	numberOfCoins_text.text = 'Mission Complete!';
   requestAnimationFrame(animate);
   render();
 }
