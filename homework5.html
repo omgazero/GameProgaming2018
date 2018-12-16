@@ -31,6 +31,8 @@ body {
 <script src="https://rawgit.com/mrdoob/three.js/dev/examples/js/MorphBlendMesh.js"></script>
 <script src="https://rawgit.com/mrdoob/three.js/dev/examples/js/MD2CharacterComplex.js"></script>
 <script src="https://rawgit.com/mrdoob/three.js/dev/examples/js/loaders/MD2Loader.js"></script>
+<script src="https://rawgit.com/jyunming-chen/tutsplus/master/js/text2D.js"></script>
+<script src='https://jyunming-chen.github.io/WebAudio/js/shared.js'></script>
 <script>
 class MD2Wrapper{
 	constructor (config, controls, pos, scale = 1){
@@ -54,19 +56,67 @@ class MD2Wrapper{
 		this.md2.loadParts(config);
 	}
 }
+class Coin{
+	constructor(){
+	
+		this.coin = new THREE.Object3D();
+		let mesh = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 5, 20), new THREE.MeshPhongMaterial({color : "yellow"}));
+		mesh.castShadow = true;
+		mesh.rotation.x = Math.PI/2;
+		mesh.position.y += 15;
+		this.coin.add(mesh);
+		let x = Math.random()*1500-750, y = Math.random()*40, z = Math.random()*1500-750;
+		if( x > 170)
+			y += 40;
+		this.coin.position.set( x, y,z );
+		scene.add(this.coin);
+	}
+	update(i){
+	
+		this.coin.rotation.y += 0.01;
+		let diff = Math.sqrt((vegetaWrap.md2.root.position.x - this.coin.position.x)*(vegetaWrap.md2.root.position.x - this.coin.position.x) + (vegetaWrap.md2.root.position.z - this.coin.position.z)*(vegetaWrap.md2.root.position.z - this.coin.position.z))
+		let diffy = Math.abs((vegetaWrap.md2.root.position.y - 24 )- this.coin.position.y);
+	//	console.log('diffy = ' + diffy);
+		if(diff <= 20 ){
+			//console.log('getCoin ' + 'diff = ' + diff);
+			if(diffy <=29){									///角色碰得到
+				coins.splice(i, 1);
+				numberOfCoins++;
+				scene.remove(this.coin);
+				if(coinBuffer)
+					playCollisionSound(coinBuffer);
+			}
+			else {											///需跳躍才能碰到
+				if(vegetaWrap.md2.controls.jump==true){
+					coins.splice(i, 1);
+					numberOfCoins++;
+					scene.remove(this.coin);
+				if(coinBuffer)
+					playCollisionSound(coinBuffer);					
+				}
+			}
+		}
+		
+	}
+}
 
+window.AudioContext = window.AudioContext || window.webkitAudioContext;
+var context = new AudioContext(), coinBuffer;
 
-var scene, light, camera, renderer, controls;
+var scene, light, camera, camera2, renderer, controls;
 var keyboard = new KeyboardState();
 var vegetaWrap;
 var box3, box3Helper;
 var clock = new THREE.Clock();
-var coins = [];
+var coins = [], numberOfCoins = 0, numberOfCoins_text;
+var sceneHUD, cameraHUD;
+
 init();
 animate();
 
 
 function init() {
+
   renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setClearColor(0x888888);
@@ -74,12 +124,40 @@ function init() {
 
   scene = new THREE.Scene();
 
-  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
   camera.position.y = 50;
   camera.position.z = 80;
 
+  camera2 = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 1000);
+  
   controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableKeys = false;
+	///HUD
+	sceneHUD = new THREE.Scene();  
+ 	whRatio = window.innerWidth / window.innerHeight;
+	halfH = 10;
+	halfW = whRatio * halfH;
+
+	cameraHUD = new THREE.OrthographicCamera(-halfW, halfW, halfH, -halfH, 1, 1000);
+	cameraHUD.position.z = 200; 
+	
+	var Text2D = THREE_Text.MeshText2D;
+	var SpriteText2D = THREE_Text.SpriteText2D;
+	var textAlign = THREE_Text.textAlign;  
+	
+	numberOfCoins_text = new SpriteText2D( numberOfCoins.toString() + '/50' , {
+	align: textAlign.center,
+	font: '20px Arial',
+	fillStyle: '#ff0000',
+	antialias: false
+	});
+	numberOfCoins_text.position.set(0, -6, 100);
+	numberOfCoins_text.scale.set(0.1, 0.1, 1);
+
+	sceneHUD.add(numberOfCoins_text);
+	
+	renderer.autoClear = false;
+  
   ///// Light
   light = new THREE.DirectionalLight(0xffffff);
   light.position.set(-100, 100, 100);
@@ -95,18 +173,66 @@ function init() {
   light.shadow.camera.bottom = -350;
   light.shadow.camera.fov = light.angle / Math.PI * 180 *2;
   light.shadow.bias = -0.01;
-  scene.add( new THREE.CameraHelper( light.shadow.camera ) );
+//  scene.add( new THREE.CameraHelper( light.shadow.camera ) );
   ambientLight = new THREE.AmbientLight(0x444444);
   scene.add(ambientLight);
 	
-  var gridXZ = new THREE.GridHelper(10000, 500, 'red', 'white');
-  scene.add(gridXZ);
+ /* var gridXZ = new THREE.GridHelper(10000, 500, 'red', 'white');
+  scene.add(gridXZ);*/
   ///// Ground
-  var ground = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshPhongMaterial());
+	let loader = new THREE.TextureLoader();
+	loader.crossOrigin = '';
+	let grasstex = loader.load('images/grass.jpg');
+	grasstex.repeat.set(100, 100);
+	grasstex.wrapS = THREE.RepeatWrapping;
+	grasstex.wrapT = THREE.RepeatWrapping;
+	
+  var ground = new THREE.Mesh(new THREE.PlaneGeometry(10000, 10000), new THREE.MeshPhongMaterial({map: grasstex}));
   ground.receiveShadow = true;
   ground.rotation.x = -Math.PI/2;
   ground.position.y -= 1;
   scene.add(ground);
+  
+  var stair = createStair();
+  stair.position.y = 2.5;
+  stair.position.x = 100;
+  scene.add(stair);
+  
+  let wood_ground = loader.load('images/wood_ground.jpg');
+  	wood_ground.repeat.set(100, 100);
+	wood_ground.wrapS = THREE.RepeatWrapping;
+	wood_ground.wrapT = THREE.RepeatWrapping;
+  let wood_wall = loader.load('images/wood_wall.jpg');
+  	wood_wall.repeat.set(1, 150);
+	wood_wall.wrapS = THREE.RepeatWrapping;
+	wood_wall.wrapT = THREE.RepeatWrapping;
+	
+  let  matArray = [];
+  matArray.push(new THREE.MeshPhongMaterial({
+	map: wood_wall
+  }))
+  matArray.push(new THREE.MeshPhongMaterial({
+	map: wood_wall
+  }))
+  matArray.push(new THREE.MeshPhongMaterial({
+	map: wood_wall
+  }))
+  matArray.push(new THREE.MeshPhongMaterial({
+	map: wood_wall
+  }))
+  matArray.push(new THREE.MeshPhongMaterial({
+	map: wood_ground
+  }))
+  matArray.push(new THREE.MeshPhongMaterial({
+	map: wood_ground
+  }))
+  
+  var ground2 = new THREE.Mesh(new THREE.BoxGeometry(5000, 10000, 40), new THREE.MultiMaterial(matArray));
+  ground2.receiveShadow = true;
+  ground2.rotation.x = -Math.PI/2;
+  ground2.position.x += 2675;
+  ground2.position.y += 20;
+  scene.add(ground2);
   
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -149,8 +275,8 @@ function init() {
 		crouchAttach: "crattak"
 	},
 
-	walkSpeed: 350, 
-	crouchSpeed: 175
+	walkSpeed: 250, 
+	crouchSpeed: 125
 
 	}
 	let characterControls = {
@@ -167,36 +293,48 @@ function init() {
 	gyro.add(light, light.target);
 	vegetaWrap.md2.root.add(gyro);
 	
-	box3 = new THREE.Box3();
+	/*box3 = new THREE.Box3();
 	box3helper = new THREE.Box3Helper(box3);
-	scene.add(box3helper);
+	scene.add(box3helper);*/
 	///// coins
-	var coin1 = createCoin();
-	coin1.position.x += 30;
-	coins.push(coin1);
-	scene.add(coin1);
+	coins = createCoins(50);
+	
 	/////
+	loadCollisionSound('sound/se/smb_coin.wav');
+	
 	window.addEventListener( 'resize', onWindowResize, false );
 	document.addEventListener( 'keydown', onKeyDown, false );
 	document.addEventListener( 'keyup', onKeyUp, false );
 }
 
 function animate() {
-  getCoins();
-  console.log ('y is ' + vegetaWrap.md2.root.position.y)
+
+  for(let i = 0; i < coins.length ; i++){
+	coins[i].update(i);
+  }
+  numberOfCoins_text.text = numberOfCoins.toString() + '/50';
   requestAnimationFrame(animate);
   render();
 }
 
 function render() {
-	box3.setFromObject(vegetaWrap.md2.root);
+	renderer.clear(true);
+	//box3.setFromObject(vegetaWrap.md2.root);
 	let delta = clock.getDelta();
 	if(vegetaWrap.md2){
 		vegetaWrap.md2.update(delta);
+		//// 無法通過太高的牆
+		if(vegetaWrap.md2.root.position.x > 170 && vegetaWrap.md2.root.position.y < 64){
+			vegetaWrap.md2.root.position.x = 170;
+		}
+		//// 走階梯
+		vegetaWrap.md2.root.position.copy( height(vegetaWrap.md2.root.position.x, vegetaWrap.md2.root.position.y, vegetaWrap.md2.root.position.z) );
 	}
   renderer.render(scene, camera);
+  renderer.render(sceneHUD, cameraHUD);
 }
 function onKeyDown(event){
+
 	event.stopPropagation();
 	let controls = vegetaWrap.md2.controls;
 	
@@ -204,24 +342,26 @@ function onKeyDown(event){
 		case 38: /*up*/
 		case 87: /*W*/ 	controls.moveForward = true; break;
 		case 40: /*down*/
-		case 83: /*S*/ 	 controls.moveBackward = true; vegetaWrap.md2.root.rotation.y += Math.PI; break;
+		case 83: /*S*/ 	 controls.moveBackward = true; break;
 		case 37: /*left*/
 		case 65: /*A*/ controls.moveLeft = true; break;
 		case 39: /*right*/
 		case 68: /*D*/ controls.moveRight = true; break;
 		case 67: /*C*/     controls.crouch = true; break;
-		case 32: /*space*/ controls.jump = true;break;
+		case 32: /*space*/ controls.jump = true; break;
 		case 17: /*ctrl*/  controls.attack = true; break;
 	}
 }
 function onKeyUp( event ) {
+
 	event.stopPropagation();
 	let controls = vegetaWrap.md2.controls;
+	
 	switch ( event.keyCode ) {
 		case 38: /*up*/
 		case 87: /*W*/ controls.moveForward = false; break;
 		case 40: /*down*/
-		case 83: /*S*/ 	 controls.moveBackward = false; vegetaWrap.md2.root.rotation.y -= Math.PI; break;
+		case 83: /*S*/ 	 controls.moveBackward = false;  break;
 		case 37: /*left*/
 		case 65: /*A*/ 	 controls.moveLeft = false; break;
 		case 39: /*right*/
@@ -231,27 +371,116 @@ function onKeyUp( event ) {
 		case 17: /*ctrl*/  controls.attack = false; break;
 	}
 }
-function createCoin(){
-	let coin = new THREE.Object3D();
-	mesh = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 10, 20), new THREE.MeshPhongMaterial({color : "yellow"}));
-	mesh.castShadow = true;
-	mesh.rotation.x = Math.PI/2;
-	mesh.position.y += 15;
-	coin.add(mesh);
+function height(x, y, z){
+
+	if(x>= 90 && x<= 100 && z <= 30 && z >= -30)
+		return new THREE.Vector3(x, 24.416725158691406 + 5, z);
+	else if(x>= 100 && x<= 110 && z <= 30 && z >= -30 && y >= 24.416725158691406 + 5)
+		return new THREE.Vector3(x, 24.416725158691406 + 10, z);
+	else if(x>= 110 && x<= 120 && z <= 30 && z >= -30 && y >= 24.416725158691406 + 10)
+		return new THREE.Vector3(x, 24.416725158691406 + 15, z);
+	else if(x>= 120 && x<= 130 && z <= 30 && z >= -30 && y >= 24.416725158691406 + 15)
+		return new THREE.Vector3(x, 24.416725158691406 + 20, z);
+	else if(x>= 130 && x<= 140 && z <= 30 && z >= -30 && y >= 24.416725158691406 + 20)
+		return new THREE.Vector3(x, 24.416725158691406 + 25, z);
+	else if(x>= 140 && x<= 150 && z <= 30 && z >= -30 && y >= 24.416725158691406 + 25)
+		return new THREE.Vector3(x, 24.416725158691406 + 30, z);	
+	else if(x>= 150 && x<= 160 && z <= 30 && z >= -30 && y >= 24.416725158691406 + 30)
+		return new THREE.Vector3(x, 24.416725158691406 + 35, z);	
+	else if(x>= 160 && x<= 170 && z <= 30 && z >= -30 && y >= 24.416725158691406 + 35)
+		return new THREE.Vector3(x, 24.416725158691406 + 40, z);	
+	else if(x >= 170 && y >= 64)
+		return new THREE.Vector3(x, 24.416725158691406 + 40, z);
+	else if(x>=100 && x<=170 && y <= 24.416725158691406 ){
+		if( z <= 35 && z >= 0)
+			return new THREE.Vector3(x, 24.416725158691406, 35);
+		else if( z >= -35 && z <0){
+			return new THREE.Vector3(x, 24.416725158691406, -35);
+		}	
+		else return new THREE.Vector3(x, 24.416725158691406, z);
+	}	
+	else 
+		return new THREE.Vector3(x, 24.416725158691406, z);
+}
+function createCoins(n){
+
+	let coins = [];
+	for(let i = 0; i < n; i++){
+		coin = new Coin();
+		coins.push(coin);
+	}
+	return coins;
+}
+function createStair(){
+
+	let stair = new THREE.Object3D();
+	mesh1 = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 60), new THREE.MeshPhongMaterial({color: 'red'}));
+	mesh1.receiveShadow = true;
+	stair.add(mesh1);
+	mesh2 = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 60), new THREE.MeshPhongMaterial({color: 'orange'}));
+	mesh2.receiveShadow = true;
+	mesh2.position.x = 10;
+	mesh2.position.y = 2.5;
+	mesh1.add(mesh2);
+	mesh3 = new THREE.Mesh(new THREE.BoxGeometry(10, 15, 60), new THREE.MeshPhongMaterial({color: 'yellow'}));
+	mesh3.receiveShadow = true;
+	mesh3.position.x = 10;
+	mesh3.position.y = 2.5;
+	mesh2.add(mesh3);
+	mesh4 = new THREE.Mesh(new THREE.BoxGeometry(10, 20, 60), new THREE.MeshPhongMaterial({color: 'green'}));
+	mesh4.receiveShadow = true;
+	mesh4.position.x = 10;
+	mesh4.position.y = 2.5;
+	mesh3.add(mesh4);
+	mesh5 = new THREE.Mesh(new THREE.BoxGeometry(10, 25, 60), new THREE.MeshPhongMaterial({color: 'blue'}));
+	mesh5.receiveShadow = true;
+	mesh5.position.x = 10;
+	mesh5.position.y = 2.5;
+	mesh4.add(mesh5);
+	mesh6 = new THREE.Mesh(new THREE.BoxGeometry(10, 30, 60), new THREE.MeshPhongMaterial({color: 'indigo'}));
+	mesh6.receiveShadow = true;
+	mesh6.position.x = 10;
+	mesh6.position.y = 2.5;
+	mesh5.add(mesh6);
+	mesh7 = new THREE.Mesh(new THREE.BoxGeometry(10, 35, 60), new THREE.MeshPhongMaterial({color: 'purple'}));
+	mesh7.receiveShadow = true;
+	mesh7.position.x = 10;
+	mesh7.position.y = 2.5;
+	mesh6.add(mesh7);
+	mesh8 = new THREE.Mesh(new THREE.BoxGeometry(10, 40, 60), new THREE.MeshPhongMaterial({color: 'white'}));
+	mesh8.receiveShadow = true;
+	mesh8.position.x = 10;
+	mesh8.position.y = 2.5;
+	mesh7.add(mesh8);
 	
-	return coin;
+	return stair;
 }
 
-function getCoins(){
-	for(let i = 0; i < coins.length; i++){
-		let diff = Math.sqrt((vegetaWrap.md2.root.position.x - coins[i].position.x)*(vegetaWrap.md2.root.position.x - coins[i].position.x) + (vegetaWrap.md2.root.position.z - coins[i].position.z)*(vegetaWrap.md2.root.position.z - coins[i].position.z))
-		if(diff <= 20){
-			console.log('getCoin ' + 'diff = ' + diff);
-		}
-	}
+function loadCollisionSound(url) {
+
+  var request = new XMLHttpRequest();
+  request.open('GET', url, true);
+  request.responseType = 'arraybuffer';
+
+  request.onload = function() {
+    context.decodeAudioData(request.response, function(buffer) {
+      coinBuffer = buffer;
+    }, function onError( xhr ) {});
+	
+  }
+  request.send();
+}
+
+function playCollisionSound(buffer) {
+
+  let source = context.createBufferSource(); 
+  source.buffer = buffer;                    
+  source.connect(context.destination);       
+  source.start(0);                            
 }
 
 function onWindowResize() {
+
 	camera.aspect = window.innerWidth / window.innerHeight;
 	camera.updateProjectionMatrix();
 	renderer.setSize( window.innerWidth, window.innerHeight );
